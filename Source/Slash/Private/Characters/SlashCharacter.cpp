@@ -60,6 +60,8 @@ void ASlashCharacter::BeginPlay()
 
 void ASlashCharacter::Move(const FInputActionValue& Value)
 {
+	//Temporary if state disabling movement until I can implement attacking and running
+	if (ActionState == EActionState::EAS_Attacking) return;
 	if (GetController())
 	{
 		//We want to find out which way is forward. We only care for the Yaw (left and right) as our character is on the ground
@@ -117,11 +119,30 @@ void ASlashCharacter::EKeyPressed()
 
 void ASlashCharacter::Attack()
 {
+	//Refactoring the if conditional into CanAttack
+	if (CanAttack())
+	{
+		//Instead of having a block of code in Attack() to handle the attack montage we refactor the attack montage handling to a new function
+		PlayAttackMontage();
+		ActionState = EActionState::EAS_Attacking;
+
+	}
+}
+
+bool ASlashCharacter::CanAttack()
+{
+	return ActionState ==
+		EActionState::EAS_Unoccupied &&
+		CharacterState != ECharacterState::ECS_Unequipped;
+}
+
+void ASlashCharacter::PlayAttackMontage()
+{
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance && AttackMontage)
 	{
 		AnimInstance->Montage_Play(AttackMontage);
-		int32 Selection = FMath::RandRange(0, 1);
+		int32 const Selection = FMath::RandRange(0, 1);
 		FName SectionName = FName();
 		switch (Selection)
 		{
@@ -131,11 +152,17 @@ void ASlashCharacter::Attack()
 		case 1:
 			SectionName = FName("Attack2");
 			break;
-		default:break;
+		default:
+			break;
 		}
 		AnimInstance->Montage_JumpToSection(SectionName, AttackMontage);
 
 	}
+}
+
+void ASlashCharacter::AttackEnd()
+{
+	ActionState = EActionState::EAS_Unoccupied;
 }
 
 void ASlashCharacter::Tick(float DeltaTime)

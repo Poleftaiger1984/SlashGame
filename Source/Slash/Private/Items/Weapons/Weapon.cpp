@@ -3,12 +3,13 @@
 
 #include "Items/Weapons/Weapon.h"
 #include "Characters/SlashCharacter.h"
-#include "Characters/WeaponTypes.h"
+#include "Characters/CharacterTypes.h"
 
 void AWeapon::Equip(TObjectPtr<USceneComponent> InParent, FName InSocketName)
 {
 	FAttachmentTransformRules TransformRules(EAttachmentRule::SnapToTarget, true);
 	ItemMesh->AttachToComponent(InParent, TransformRules, InSocketName);
+	ItemState = EItemState::EIS_Equipped;
 }
 
 void AWeapon::SetWeaponType(EWeaponType NewWeaponType)
