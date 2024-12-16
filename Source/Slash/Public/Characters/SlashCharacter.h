@@ -93,7 +93,6 @@ private:
 	* Animation Montages
 	*/
 
-	UPROPERTY(EditDefaultsOnly, Category = "Montages")
 	TObjectPtr<UAnimMontage> AttackMontage;
 
 public:

@@ -139,6 +139,8 @@ bool ASlashCharacter::CanAttack()
 void ASlashCharacter::PlayAttackMontage()
 {
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	AWeapon* OverlappingWeapon = Cast<AWeapon>(OverlappingItem);
+	AttackMontage = OverlappingWeapon->GetAttackMontage();
 	if (AnimInstance && AttackMontage)
 	{
 		AnimInstance->Montage_Play(AttackMontage);

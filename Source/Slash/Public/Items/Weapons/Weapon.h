@@ -7,6 +7,7 @@
 #include "Weapon.generated.h"
 
 enum class EWeaponType: uint8;
+class UAnimMontage;
 
 UCLASS()
 class SLASH_API AWeapon : public AItem
@@ -22,6 +23,8 @@ public:
 
 	void SetWeaponType(EWeaponType NewWeaponType);
 
+	TObjectPtr<UAnimMontage> GetAttackMontage() const;
+
 protected:
 	
 	EWeaponType WeaponClass;
@@ -29,6 +32,9 @@ protected:
 	virtual void OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) override;
 
 	virtual void OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Montages")
+	TObjectPtr<UAnimMontage> AttackMontage;
 
 
 

@@ -17,6 +17,12 @@ void AWeapon::SetWeaponType(EWeaponType NewWeaponType)
 	WeaponClass = NewWeaponType;
 }
 
+TObjectPtr<UAnimMontage> AWeapon::GetAttackMontage() const
+{
+	return AttackMontage;
+}
+
+
 EWeaponType AWeapon::GetWeaponType()
 {
 	return WeaponClass;
