@@ -61,7 +61,7 @@ void ASlashCharacter::BeginPlay()
 void ASlashCharacter::Move(const FInputActionValue& Value)
 {
 	//Temporary if state disabling movement until I can implement attacking and running
-	if (ActionState == EActionState::EAS_Attacking) return;
+	if (ActionState != EActionState::EAS_Unoccupied) return;
 	if (GetController())
 	{
 		//We want to find out which way is forward. We only care for the Yaw (left and right) as our character is on the ground
@@ -94,27 +94,37 @@ void ASlashCharacter::EKeyPressed()
 	{
 		//Check to see the weapon type overlapped. Get Function is set up in AWeapon
 		EWeaponType OverlappingWeaponType = OverlappingWeapon->GetWeaponType();
-		OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocket"));
-		OverlappingWeapon->CollisionDisabler();
-
-		switch (OverlappingWeaponType)
+		if (!bIsHoldingWeapon)
 		{
-		case EWeaponType::EWP_OneHandedWeapon:
-			CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
-			break;
+			bIsHoldingWeapon = true;
+			OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocket"));
+			OverlappingWeapon->CollisionDisabler();
+			//Changing OverlappingItem to null clearing the pointer so we don't interact twice
+			OverlappingItem = nullptr;
+			//Setting reference to weapon held
+			HeldWeapon = OverlappingWeapon;
 
-		case EWeaponType::EWP_SmallWeapon:
-			CharacterState = ECharacterState::ECS_EquippedSmallWeapon;
-			break;
+			switch (OverlappingWeaponType)
+			{
+			case EWeaponType::EWP_OneHandedWeapon:
+				CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
+				break;
 
-		case EWeaponType::EWP_TwoHandedWeapon:
-			CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
-			break;
-		default: 
-			CharacterState = ECharacterState::ECS_Unequipped;
-			break;
+			case EWeaponType::EWP_SmallWeapon:
+				CharacterState = ECharacterState::ECS_EquippedSmallWeapon;
+				break;
+
+			case EWeaponType::EWP_TwoHandedWeapon:
+				CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
+				break;
+
+			default:
+				CharacterState = ECharacterState::ECS_Unequipped;
+				break;
+			}
 		}
 	}
+	
 }
 
 void ASlashCharacter::Attack()
@@ -129,6 +139,43 @@ void ASlashCharacter::Attack()
 	}
 }
 
+void ASlashCharacter::Equip()
+{
+	if (HeldWeapon && bIsHoldingWeapon)
+	{
+		EWeaponType OverlappingWeaponType = HeldWeapon->GetWeaponType();
+		if (CanDisarm())
+		{
+			PlayEquipMontage(FName("Unequip"));
+			CharacterState = ECharacterState::ECS_Unequipped;
+			ActionState = EActionState::EAS_EquippingWeapon;
+
+		}
+		else if (CanArm())
+		{
+			PlayEquipMontage(FName("Equip"));
+			switch (OverlappingWeaponType)
+			{
+			case EWeaponType::EWP_OneHandedWeapon:
+				CharacterState = ECharacterState::ECS_EquippedOneHandedWeapon;
+				break;
+
+			case EWeaponType::EWP_SmallWeapon:
+				CharacterState = ECharacterState::ECS_EquippedSmallWeapon;
+				break;
+
+			case EWeaponType::EWP_TwoHandedWeapon:
+				CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
+				break;
+
+			default:
+				break;
+			}
+			ActionState = EActionState::EAS_EquippingWeapon;
+		}
+	}
+}
+
 bool ASlashCharacter::CanAttack()
 {
 	return ActionState ==
@@ -136,11 +183,50 @@ bool ASlashCharacter::CanAttack()
 		CharacterState != ECharacterState::ECS_Unequipped;
 }
 
+bool ASlashCharacter::CanDisarm()
+{
+	return ActionState == EActionState::EAS_Unoccupied &&
+		CharacterState != ECharacterState::ECS_Unequipped;
+}
+
+bool ASlashCharacter::CanArm()
+{
+	return ActionState == EActionState::EAS_Unoccupied &&
+		CharacterState == ECharacterState::ECS_Unequipped && HeldWeapon;
+}
+
+void ASlashCharacter::Disarm()
+{
+	EWeaponType HeldWeaponType = HeldWeapon->GetWeaponType();
+	//Knife Weapon will be sheathed on the hip of the character therefore a different socket is required
+	if (HeldWeapon && HeldWeaponType != EWeaponType::EWP_SmallWeapon)
+	{
+		HeldWeapon->AttachMeshToSocket(GetMesh(), FName("SpineSocket"));
+	}
+	else if (HeldWeapon && HeldWeaponType == EWeaponType::EWP_SmallWeapon)
+	{
+		HeldWeapon->AttachMeshToSocket(GetMesh(), FName("LowerSpineSocket"));
+	}
+}
+
+void ASlashCharacter::Arm()
+{
+	if (HeldWeapon)
+	{
+		HeldWeapon->AttachMeshToSocket(GetMesh(), FName("RightHandSocket"));
+	}
+}
+
+void ASlashCharacter::FinishEquipping()
+{
+	ActionState = EActionState::EAS_Unoccupied;
+}
+
 void ASlashCharacter::PlayAttackMontage()
 {
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	AWeapon* OverlappingWeapon = Cast<AWeapon>(OverlappingItem);
-	AttackMontage = OverlappingWeapon->GetAttackMontage();
+	AttackMontage = HeldWeapon->GetAttackMontage();
 	if (AnimInstance && AttackMontage)
 	{
 		AnimInstance->Montage_Play(AttackMontage);
@@ -159,6 +245,18 @@ void ASlashCharacter::PlayAttackMontage()
 		}
 		AnimInstance->Montage_JumpToSection(SectionName, AttackMontage);
 
+	}
+}
+
+void ASlashCharacter::PlayEquipMontage(FName SectionName)
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	AWeapon* OverlappingWeapon = Cast<AWeapon>(OverlappingItem);
+	EquipMontage = HeldWeapon->GetEquipMontage();
+	if (AnimInstance && EquipMontage)
+	{
+		AnimInstance->Montage_Play(EquipMontage);
+		AnimInstance->Montage_JumpToSection(SectionName, EquipMontage);
 	}
 }
 
@@ -199,6 +297,9 @@ void ASlashCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 		//Attacking
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Attack);
+
+		//Equipping
+		EnhancedInputComponent->BindAction(EquipAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Equip);
 	}
 
 }

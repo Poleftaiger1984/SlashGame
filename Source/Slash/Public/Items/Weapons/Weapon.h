@@ -8,6 +8,7 @@
 
 enum class EWeaponType: uint8;
 class UAnimMontage;
+class USoundBase;
 
 UCLASS()
 class SLASH_API AWeapon : public AItem
@@ -17,6 +18,8 @@ class SLASH_API AWeapon : public AItem
 public:
 	void Equip(TObjectPtr<USceneComponent> InParent, FName InSocketName);
 
+	void AttachMeshToSocket(TObjectPtr<USceneComponent> InParent, const FName InSocketName);
+
 	//void IsAttachedToPlayer(TObjectPtr<AActor> Parent, TObjectPtr<AItem> ItemBeingChecked);
 	
 	virtual EWeaponType GetWeaponType();
@@ -24,6 +27,8 @@ public:
 	void SetWeaponType(EWeaponType NewWeaponType);
 
 	TObjectPtr<UAnimMontage> GetAttackMontage() const;
+	TObjectPtr<UAnimMontage> GetEquipMontage() const;
+	void CollisionDisabler();
 
 protected:
 	
@@ -35,6 +40,15 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Montages")
 	TObjectPtr<UAnimMontage> AttackMontage;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Montages")
+	TObjectPtr<UAnimMontage> EquipMontage;
+
+private:
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	TObjectPtr<USoundBase> EquipSound;
+
 
 
 

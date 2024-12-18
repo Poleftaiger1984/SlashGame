@@ -71,7 +71,7 @@ void AItem::Tick(float DeltaTime)
 
 	RunningTime += DeltaTime;
 	float RotationRate = +RunningTime;
-	
+
 	if (ItemState == EItemState::EIS_Hovering)
 	{
 		AddActorWorldOffset(FVector(0.f, 0.f, TransformSin()));

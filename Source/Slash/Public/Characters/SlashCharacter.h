@@ -14,6 +14,7 @@ class UCameraComponent;
 class USpringArmComponent;
 class UGroomComponent;
 class AItem;
+class AWeapon;
 class UAnimMontage;
 
 UCLASS()
@@ -50,6 +51,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> AttackAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> EquipAction;
+	
+
 	/*
 	* Callbacks for input 
 	*/
@@ -57,6 +62,7 @@ protected:
 	void Look(const FInputActionValue& Value);
 	void EKeyPressed();
 	void Attack();
+	void Equip();
 
 	/*
 	* Play Montage Functions
@@ -66,6 +72,17 @@ protected:
 	void AttackEnd();
 	bool CanAttack();
 
+	void PlayEquipMontage(FName SectionName);
+	bool CanDisarm();
+	bool CanArm();
+
+	UFUNCTION(BlueprintCallable)
+	void Disarm();
+	UFUNCTION(BlueprintCallable)
+	void Arm();
+
+	UFUNCTION(BlueprintCallable)
+	void FinishEquipping();
 
 private:
 
@@ -89,11 +106,16 @@ private:
 	UPROPERTY(VisibleInstanceOnly)
 	TObjectPtr<AItem> OverlappingItem;
 
+	UPROPERTY(VisibleAnywhere, Category = "VALUE")
+	TObjectPtr<AWeapon> HeldWeapon; //Reference to currently held weapon
+	bool bIsHoldingWeapon;
+
 	/*
 	* Animation Montages
 	*/
 
 	TObjectPtr<UAnimMontage> AttackMontage;
+	TObjectPtr<UAnimMontage> EquipMontage;
 
 public:
 	/*Inline functions are more optimized as compilers take the code as is and paste it wherever the function is called
