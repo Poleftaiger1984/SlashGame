@@ -10,6 +10,7 @@
 #include "Items/Item.h"
 #include "Items/Weapons/Weapon.h"
 #include "Animation/AnimMontage.h"
+#include "Components/BoxComponent.h"
 
 #include "Components/InputComponent.h"
 #include "EnhancedInputComponent.h"
@@ -94,7 +95,7 @@ void ASlashCharacter::EKeyPressed()
 	{
 		//Check to see the weapon type overlapped. Get Function is set up in AWeapon
 		EWeaponType OverlappingWeaponType = OverlappingWeapon->GetWeaponType();
-		if (!bIsHoldingWeapon)
+		if (!bIsHoldingWeapon && OverlappingWeaponType != EWeaponType::EWP_TwoHandedWeapon)
 		{
 			bIsHoldingWeapon = true;
 			OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocket"));
@@ -114,6 +115,22 @@ void ASlashCharacter::EKeyPressed()
 				CharacterState = ECharacterState::ECS_EquippedSmallWeapon;
 				break;
 
+			default:
+				CharacterState = ECharacterState::ECS_Unequipped;
+				break;
+			}
+		}
+		else if (OverlappingWeaponType == EWeaponType::EWP_TwoHandedWeapon)
+		{
+			bIsHoldingWeapon = true;
+			OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocketTwoHanded"));
+			OverlappingWeapon->CollisionDisabler();
+			//Changing OverlappingItem to null clearing the pointer so we don't interact twice
+			OverlappingItem = nullptr;
+			//Setting reference to weapon held
+			HeldWeapon = OverlappingWeapon;
+			switch (OverlappingWeaponType)
+			{
 			case EWeaponType::EWP_TwoHandedWeapon:
 				CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
 				break;
@@ -211,9 +228,14 @@ void ASlashCharacter::Disarm()
 
 void ASlashCharacter::Arm()
 {
-	if (HeldWeapon)
+	EWeaponType HeldWeaponType = HeldWeapon->GetWeaponType();
+	if (HeldWeapon && HeldWeaponType != EWeaponType::EWP_TwoHandedWeapon)
 	{
 		HeldWeapon->AttachMeshToSocket(GetMesh(), FName("RightHandSocket"));
+	}
+	else if (HeldWeapon && HeldWeaponType == EWeaponType::EWP_TwoHandedWeapon)
+	{
+		HeldWeapon->AttachMeshToSocket(GetMesh(), FName("RightHandSocketTwoHanded"));
 	}
 }
 
@@ -260,6 +282,14 @@ void ASlashCharacter::PlayEquipMontage(FName SectionName)
 	}
 }
 
+void ASlashCharacter::SetWeaponCollisionEnabled(ECollisionEnabled::Type CollisionEnabled)
+{
+	if (HeldWeapon && HeldWeapon->GetWeaponBox())
+	{
+		HeldWeapon->GetWeaponBox()->SetCollisionEnabled(CollisionEnabled);
+	}
+}
+
 void ASlashCharacter::AttackEnd()
 {
 	ActionState = EActionState::EAS_Unoccupied;
@@ -303,3 +333,4 @@ void ASlashCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	}
 
 }
+
