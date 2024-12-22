@@ -270,7 +270,7 @@ void ASlashCharacter::PlayAttackMontage()
 	}
 }
 
-void ASlashCharacter::PlayEquipMontage(FName SectionName)
+void ASlashCharacter::PlayEquipMontage(const FName& SectionName)
 {
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	AWeapon* OverlappingWeapon = Cast<AWeapon>(OverlappingItem);
@@ -287,6 +287,7 @@ void ASlashCharacter::SetWeaponCollisionEnabled(ECollisionEnabled::Type Collisio
 	if (HeldWeapon && HeldWeapon->GetWeaponBox())
 	{
 		HeldWeapon->GetWeaponBox()->SetCollisionEnabled(CollisionEnabled);
+		HeldWeapon->IgnoreActors.Empty();
 	}
 }
 

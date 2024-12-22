@@ -32,6 +32,9 @@ public:
 	TObjectPtr<UAnimMontage> GetEquipMontage() const;
 	void CollisionDisabler();
 
+	TArray<TObjectPtr<AActor>> IgnoreActors;
+
+
 protected:
 	virtual void BeginPlay() override;
 	
@@ -63,9 +66,7 @@ private:
 	TObjectPtr<USceneComponent> BoxTraceStart;
 
 	UPROPERTY(VisibleAnywhere)
-
 	TObjectPtr<USceneComponent> BoxTraceEnd;
-
 
 public:
 	FORCEINLINE TObjectPtr<UBoxComponent> GetWeaponBox() const { return WeaponBox; }

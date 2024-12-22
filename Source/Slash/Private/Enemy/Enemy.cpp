@@ -5,6 +5,9 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Slash/DebugMacros.h"
+#include "Animation/AnimMontage.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/GameplayStatics.h"
 
 AEnemy::AEnemy()
 {
@@ -23,6 +26,16 @@ void AEnemy::BeginPlay()
 	
 }
 
+void AEnemy::PlayHitReactMontage(const FName& SectionName)
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && HitReactMontage)
+	{
+		AnimInstance->Montage_Play(HitReactMontage);
+		AnimInstance->Montage_JumpToSection(SectionName, HitReactMontage);
+	}
+}
+
 void AEnemy::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -37,6 +50,54 @@ void AEnemy::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 
 void AEnemy::GetHit(const FVector& ImpactPoint)
 {
-	DRAW_SPHERE_COLOR(ImpactPoint, FColor::Orange);
+	DirectionalHitReact(ImpactPoint);
+
+	if (HitSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, HitSound, ImpactPoint);
+	}
+	if (HitParticles && GetWorld())
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), HitParticles, ImpactPoint);
+	}
+}
+
+void AEnemy::DirectionalHitReact(const FVector& ImpactPoint)
+{
+	const FVector Forward = GetActorForwardVector();
+	//Lower Impact point to the enemy actors z
+	const FVector ImpactLowered(ImpactPoint.X, ImpactPoint.Y, GetActorLocation().Z);
+	const FVector ToHit = (ImpactLowered - GetActorLocation()).GetSafeNormal(); //GetSafeNormal normalizes the vector
+
+	// Forward * ToHit = |Forward| |ToHit| * cos(è)
+	// |Forward| = 1, |ToHit| = 1 so Forward * ToHit = cos(è)
+	const double CosTheta = FVector::DotProduct(Forward, ToHit);
+	//Take the inverse cosine of cos gets us the angle è
+	double AngleOfAttack = FMath::Acos(CosTheta);
+	//Convert from radians to degrees
+	AngleOfAttack = FMath::RadiansToDegrees(AngleOfAttack);
+
+	//If CrossProduct points down then è should be negative
+	const FVector CrossProduct = FVector::CrossProduct(Forward, ToHit);
+	if (CrossProduct.Z < 0)
+	{
+		AngleOfAttack *= -1.f;
+	}
+	FName Section("FromBack");
+
+	if (AngleOfAttack >= -45.f && AngleOfAttack < 45.f)
+	{
+		Section = FName("FromFront");
+	}
+	else if (AngleOfAttack >= -135.f && AngleOfAttack < -45.f)
+	{
+		Section = FName("FromLeft");
+	}
+	else if (AngleOfAttack >= 45.f && AngleOfAttack < 135.f)
+	{
+		Section = FName("FromRight");
+	}
+
+	PlayHitReactMontage(Section);
 }
 
