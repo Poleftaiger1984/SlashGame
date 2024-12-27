@@ -57,6 +57,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> EquipAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> DropWeaponAction;
 	
 
 	/*
@@ -67,6 +70,7 @@ protected:
 	void EKeyPressed();
 	void Attack();
 	void Equip();
+	void DropWeapon();
 
 	/*
 	* Play Montage Functions
@@ -129,5 +133,6 @@ public:
 	* the compiler to keep the function inline */
 	FORCEINLINE void SetOverlappingItem(TObjectPtr<AItem> Item) { OverlappingItem = Item; }
 	FORCEINLINE ECharacterState GetCharacterState() const { return CharacterState; }
+	FORCEINLINE EActionState GetActionState() const { return ActionState; }
 
 };

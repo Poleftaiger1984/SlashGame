@@ -9,6 +9,7 @@
 #include "Components/BoxComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Interfaces/HitInterface.h"
+#include "NiagaraComponent.h"
 
 AWeapon::AWeapon()
 {
@@ -23,6 +24,8 @@ AWeapon::AWeapon()
 
 	BoxTraceEnd = CreateDefaultSubobject<USceneComponent>(TEXT("Box Trace End"));
 	BoxTraceEnd->SetupAttachment(GetRootComponent());
+
+	ItemMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 
 }
 
@@ -40,11 +43,19 @@ void AWeapon::Equip(TObjectPtr<USceneComponent> InParent, FName InSocketName)
 	//Play equip sound on equip
 	if (EquipSound)
 	{
-		UGameplayStatics::PlaySoundAtLocation(
-			this,
-			EquipSound,
-			GetActorLocation()
-		);
+		UGameplayStatics::PlaySoundAtLocation(this, EquipSound, GetActorLocation());
+	}
+	if (EmbersEffect)
+	{
+		EmbersEffect->Deactivate();
+	}
+}
+
+void AWeapon::EmbersActivate()
+{
+	if (EmbersEffect)
+	{
+		EmbersEffect->Activate();
 	}
 }
 
@@ -101,16 +112,19 @@ void AWeapon::OnBoxOverlap(UPrimitiveComponent* OverlappedComponent, AActor* Oth
 
 	FHitResult BoxHit;
 
-	UKismetSystemLibrary::BoxTraceSingle(this, Start, End, FVector(5.f, 5.f, 5.f), BoxTraceStart->GetComponentRotation(), ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::None, BoxHit, true);
+	UKismetSystemLibrary::BoxTraceSingle(this, Start, End, FVector(8.f, 8.f, 50.f), BoxTraceStart->GetComponentRotation(), ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, EDrawDebugTrace::None, BoxHit, true);
 
 	if (BoxHit.GetActor())
 	{
 		IHitInterface* HitInterface = Cast<IHitInterface>(BoxHit.GetActor());
 		if (HitInterface)
 		{
-			HitInterface->GetHit(BoxHit.ImpactPoint);
+			// Execute_GetHit is automatically generated and is the only way to call a BlueprintNativeFunction in C++
+			HitInterface->Execute_GetHit(BoxHit.GetActor(), BoxHit.ImpactPoint);
+			CreateFields(BoxHit.ImpactPoint);
 		}
 		IgnoreActors.AddUnique(BoxHit.GetActor());
+		
 	}
 }
 
@@ -118,9 +132,20 @@ void AWeapon::CollisionDisabler()
 {
 	if (Sphere)
 	{
-		ItemMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+		ItemMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Destructible, ECollisionResponse::ECR_Ignore);
 		ItemMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
 		Sphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
 	}
 	
 }
+
+void AWeapon::CollisionEnabler()
+{
+	if (Sphere)
+	{
+		ItemMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Destructible, ECollisionResponse::ECR_Block);
+		ItemMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Block);
+		Sphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+	}
+}
+

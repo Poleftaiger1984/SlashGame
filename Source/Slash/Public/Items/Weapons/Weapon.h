@@ -31,6 +31,8 @@ public:
 	TObjectPtr<UAnimMontage> GetAttackMontage() const;
 	TObjectPtr<UAnimMontage> GetEquipMontage() const;
 	void CollisionDisabler();
+	void CollisionEnabler();
+	void EmbersActivate();
 
 	TArray<TObjectPtr<AActor>> IgnoreActors;
 
@@ -53,6 +55,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Montages")
 	TObjectPtr<UAnimMontage> EquipMontage;
 
+	UFUNCTION(BlueprintImplementableEvent)
+	void CreateFields(const FVector& FieldLocation);
 private:
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")

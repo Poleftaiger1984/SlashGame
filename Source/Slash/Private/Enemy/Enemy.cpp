@@ -8,6 +8,7 @@
 #include "Animation/AnimMontage.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Kismet/GameplayStatics.h"
+#include "Components/AttributeComponent.h"
 
 AEnemy::AEnemy()
 {
@@ -18,6 +19,8 @@ AEnemy::AEnemy()
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	GetMesh()->SetGenerateOverlapEvents(true);
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+
+	Attributes = CreateDefaultSubobject<UAttributeComponent>(TEXT("Attribute Component"));
 }
 
 void AEnemy::BeginPlay()
@@ -48,7 +51,7 @@ void AEnemy::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 
 }
 
-void AEnemy::GetHit(const FVector& ImpactPoint)
+void AEnemy::GetHit_Implementation(const FVector& ImpactPoint)
 {
 	DirectionalHitReact(ImpactPoint);
 

@@ -22,5 +22,6 @@ class SLASH_API IHitInterface
 
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
-	virtual void GetHit(const FVector& ImpactPoint) = 0; //Pure Virtual Function. Makes the class abstract and the function requires no definition when it =0
+	UFUNCTION(BlueprintNativeEvent) //BlueprintNativeEvent makes it so the Function is overwrittable everywhere, both in BP and in C++. Function now requires no virtual or =0
+	void GetHit(const FVector& ImpactPoint); //Pure Virtual Function. Makes the class abstract and the function requires no definition when it =0
 };

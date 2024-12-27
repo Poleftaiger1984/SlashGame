@@ -7,6 +7,7 @@
 #include "Item.generated.h"
 
 class USphereComponent;
+class UNiagaraComponent;
 
 enum class EItemState : uint8
 {
@@ -59,12 +60,16 @@ protected:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<USphereComponent> Sphere;
 
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UNiagaraComponent> EmbersEffect;
+
 private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	float RunningTime;
-
 	
+public:
+	FORCEINLINE void SetItemState(EItemState State) { ItemState = State; }
 };
 
 template<typename T>

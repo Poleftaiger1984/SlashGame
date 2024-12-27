@@ -122,22 +122,25 @@ void ASlashCharacter::EKeyPressed()
 		}
 		else if (OverlappingWeaponType == EWeaponType::EWP_TwoHandedWeapon)
 		{
-			bIsHoldingWeapon = true;
-			OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocketTwoHanded"));
-			OverlappingWeapon->CollisionDisabler();
-			//Changing OverlappingItem to null clearing the pointer so we don't interact twice
-			OverlappingItem = nullptr;
-			//Setting reference to weapon held
-			HeldWeapon = OverlappingWeapon;
-			switch (OverlappingWeaponType)
+			if (!HeldWeapon)
 			{
-			case EWeaponType::EWP_TwoHandedWeapon:
-				CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
-				break;
+				bIsHoldingWeapon = true;
+				OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocketTwoHanded"));
+				OverlappingWeapon->CollisionDisabler();
+				//Changing OverlappingItem to null clearing the pointer so we don't interact twice
+				OverlappingItem = nullptr;
+				//Setting reference to weapon held
+				HeldWeapon = OverlappingWeapon;
+				switch (OverlappingWeaponType)
+				{
+				case EWeaponType::EWP_TwoHandedWeapon:
+					CharacterState = ECharacterState::ECS_EquippedTwoHandedWeapon;
+					break;
 
-			default:
-				CharacterState = ECharacterState::ECS_Unequipped;
-				break;
+				default:
+					CharacterState = ECharacterState::ECS_Unequipped;
+					break;
+				}
 			}
 		}
 	}
@@ -189,6 +192,31 @@ void ASlashCharacter::Equip()
 				break;
 			}
 			ActionState = EActionState::EAS_EquippingWeapon;
+		}
+	}
+}
+
+void ASlashCharacter::DropWeapon()
+{
+	if (HeldWeapon && bIsHoldingWeapon == true)
+	{
+		UWorld* World = GetWorld();
+		if (World && HeldWeapon)
+		{
+			HeldWeapon->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+			FVector PlayerLocation = GetActorLocation();
+			FVector PlayerForward = GetActorForwardVector();
+			float DropDistance = 75.f;
+			FVector DropLocation = PlayerLocation + (PlayerForward * DropDistance);
+			HeldWeapon->SetActorLocation(DropLocation);
+			HeldWeapon->SetActorRotation(GetActorRotation());
+			HeldWeapon->CollisionEnabler();
+			HeldWeapon->SetItemState(EItemState::EIS_Hovering);
+			HeldWeapon->EmbersActivate();
+
+			HeldWeapon = nullptr;
+			bIsHoldingWeapon = false;
+			CharacterState = ECharacterState::ECS_Unequipped;
 		}
 	}
 }
@@ -331,6 +359,9 @@ void ASlashCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 		//Equipping
 		EnhancedInputComponent->BindAction(EquipAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Equip);
+
+		//Dropping Weapon
+		EnhancedInputComponent->BindAction(DropWeaponAction, ETriggerEvent::Triggered, this, &ASlashCharacter::DropWeapon);
 	}
 
 }
