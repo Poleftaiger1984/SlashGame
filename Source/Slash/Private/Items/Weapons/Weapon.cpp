@@ -36,8 +36,10 @@ void AWeapon::BeginPlay()
 }
 
 
-void AWeapon::Equip(TObjectPtr<USceneComponent> InParent, FName InSocketName)
+void AWeapon::Equip(TObjectPtr<USceneComponent> InParent, FName InSocketName, TObjectPtr<AActor> NewOwner, TObjectPtr<APawn> NewInstigator)
 {
+	SetOwner(NewOwner);
+	SetInstigator(NewInstigator);
 	AttachMeshToSocket(InParent, InSocketName);
 	ItemState = EItemState::EIS_Equipped;
 	//Play equip sound on equip
@@ -116,6 +118,8 @@ void AWeapon::OnBoxOverlap(UPrimitiveComponent* OverlappedComponent, AActor* Oth
 
 	if (BoxHit.GetActor())
 	{
+		UGameplayStatics::ApplyDamage(BoxHit.GetActor(), Damage, GetInstigator()->GetController(), this, UDamageType::StaticClass());
+
 		IHitInterface* HitInterface = Cast<IHitInterface>(BoxHit.GetActor());
 		if (HitInterface)
 		{

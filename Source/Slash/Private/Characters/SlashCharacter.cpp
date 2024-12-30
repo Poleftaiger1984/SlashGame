@@ -98,7 +98,8 @@ void ASlashCharacter::EKeyPressed()
 		if (!bIsHoldingWeapon && OverlappingWeaponType != EWeaponType::EWP_TwoHandedWeapon)
 		{
 			bIsHoldingWeapon = true;
-			OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocket"));
+			OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocket"), this, this);
+			OverlappingWeapon->SetOwner(this); //Set Weapon Actor owner 
 			OverlappingWeapon->CollisionDisabler();
 			//Changing OverlappingItem to null clearing the pointer so we don't interact twice
 			OverlappingItem = nullptr;
@@ -125,7 +126,7 @@ void ASlashCharacter::EKeyPressed()
 			if (!HeldWeapon)
 			{
 				bIsHoldingWeapon = true;
-				OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocketTwoHanded"));
+				OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocketTwoHanded"), this, this);
 				OverlappingWeapon->CollisionDisabler();
 				//Changing OverlappingItem to null clearing the pointer so we don't interact twice
 				OverlappingItem = nullptr;

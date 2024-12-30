@@ -18,7 +18,7 @@ class SLASH_API AWeapon : public AItem
 
 public:
 	AWeapon();
-	void Equip(TObjectPtr<USceneComponent> InParent, FName InSocketName);
+	void Equip(TObjectPtr<USceneComponent> InParent, FName InSocketName, TObjectPtr<AActor> NewOwner, TObjectPtr<APawn> NewInstigator);
 
 	void AttachMeshToSocket(TObjectPtr<USceneComponent> InParent, const FName InSocketName);
 
@@ -57,6 +57,7 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void CreateFields(const FVector& FieldLocation);
+
 private:
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
@@ -71,6 +72,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<USceneComponent> BoxTraceEnd;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	float Damage = 20.f;
 
 public:
 	FORCEINLINE TObjectPtr<UBoxComponent> GetWeaponBox() const { return WeaponBox; }

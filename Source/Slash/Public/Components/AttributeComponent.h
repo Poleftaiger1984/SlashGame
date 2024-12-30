@@ -26,4 +26,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Actor Attributes")
 	float MaxHealth;
+
+public:
+	void RecieveDamage(float Damage);
+	FORCEINLINE float GetHealthPercent() { return Health / MaxHealth; }
+	bool IsAlive() const;
 };
