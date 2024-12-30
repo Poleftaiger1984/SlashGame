@@ -30,11 +30,14 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-	void Die();
+	void Die(const FVector& ImpactPoint);
+	FName DirectionalDeathSelection(const FVector& ImpactPoint, FName& DeathSectionName);
 	/*
 	* Play Montage Functions
 	*/
 	void PlayHitReactMontage(const FName& SectionName);
+	void PlayDeathMontage(const FName& DeathSectionName);
+
 
 	UPROPERTY(BlueprintReadOnly)
 	EDeathPose DeathPose = EDeathPose::EDP_Alive;
@@ -62,6 +65,11 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Visual Effects")
 	TObjectPtr<UParticleSystem> HitParticles;
 
+	UPROPERTY()
+	TObjectPtr<AActor> CombatTarget;
+
+	UPROPERTY(EditAnywhere)
+	double CombatRadius = 500;
 public:
 
 };

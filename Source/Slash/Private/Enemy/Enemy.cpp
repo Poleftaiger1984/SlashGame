@@ -31,49 +31,117 @@ AEnemy::AEnemy()
 void AEnemy::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	
+	if (HealthBarWidget)
+	{
+		HealthBarWidget->SetVisibility(false);
+	}
 }
 
-void AEnemy::Die()
+void AEnemy::Die(const FVector& ImpactPoint)
 {
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	if (AnimInstance && DeathMontage)
+	FName DeathSectionName = DirectionalDeathSelection(ImpactPoint, DeathSectionName);
+
+	PlayDeathMontage(DeathSectionName);
+
+	if (HealthBarWidget)
 	{
-		AnimInstance->Montage_Play(DeathMontage);
-		int32 const Selection = FMath::RandRange(0, 5);
-		FName SectionName = FName();
-		switch (Selection)
+		HealthBarWidget->SetVisibility(false);
+	}
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SetLifeSpan(7.f);
+}
+
+FName AEnemy::DirectionalDeathSelection(const FVector& ImpactPoint, FName& DeathSectionName)
+{
+	const FVector Forward = GetActorForwardVector();
+	const FVector ImpactLowered(ImpactPoint.X, ImpactPoint.Y, GetActorLocation().Z);
+	const FVector ToHit = (ImpactLowered - GetActorLocation()).GetSafeNormal();
+
+	const double CosTheta = FVector::DotProduct(Forward, ToHit);
+	double AngleOfAttack = FMath::Acos(CosTheta);
+	//Convert from radians to degrees
+	AngleOfAttack = FMath::RadiansToDegrees(AngleOfAttack);
+	const FVector CrossProduct = FVector::CrossProduct(Forward, ToHit);
+
+	if (CrossProduct.Z < 0)
+	{
+		AngleOfAttack *= -1.f;
+	}
+	int32 const SelectionBack = FMath::RandRange(0, 2);
+	switch (SelectionBack)
+	{
+	case 0:
+		DeathSectionName = FName("DeathBack1");
+		DeathPose = EDeathPose::EDP_DeathBack1;
+		break;
+	case 1:
+		DeathSectionName = FName("DeathBack2");
+		DeathPose = EDeathPose::EDP_DeathBack2;
+		break;
+	case 2:
+		DeathSectionName = FName("DeathBack3");
+		DeathPose = EDeathPose::EDP_DeathBack3;
+		break;
+	default:
+		break;
+	}
+
+	if (AngleOfAttack >= -45.f && AngleOfAttack < 45.f)
+	{
+		int32 const SelectionForward = FMath::RandRange(0, 2);
+		switch (SelectionForward)
 		{
 		case 0:
-			SectionName = FName("Death1");
-			DeathPose = EDeathPose::EDP_Death1;
+			DeathSectionName = FName("DeathForward1");
+			DeathPose = EDeathPose::EDP_DeathForward1;
 			break;
 		case 1:
-			SectionName = FName("Death2");
-			DeathPose = EDeathPose::EDP_Death2;
+			DeathSectionName = FName("DeathForward2");
+			DeathPose = EDeathPose::EDP_DeathForward2;
 			break;
 		case 2:
-			SectionName = FName("Death3");
-			DeathPose = EDeathPose::EDP_Death3;
-			break;
-		case 3:
-			SectionName = FName("Death4");
-			DeathPose = EDeathPose::EDP_Death4;
-			break;
-		case 4:
-			SectionName = FName("Death5");
-			DeathPose = EDeathPose::EDP_Death5;
-			break;
-		case 5:
-			SectionName = FName("Death6");
-			DeathPose = EDeathPose::EDP_Death6;
-			break;
-		default: 
+			DeathSectionName = FName("DeathForward3");
+			DeathPose = EDeathPose::EDP_DeathForward3;
+		default:
 			break;
 		}
-		AnimInstance->Montage_JumpToSection(SectionName, DeathMontage);
 	}
+	else if (AngleOfAttack >= -135.f && AngleOfAttack < -45.f)
+	{
+		int32 const SelectionLeft = FMath::RandRange(0, 1);
+		switch (SelectionLeft)
+		{
+		case 0:
+			DeathSectionName = FName("DeathLeft1");
+			DeathPose = EDeathPose::EDP_DeathLeft1;
+			break;
+		case 1:
+			DeathSectionName = FName("DeathLeft2");
+			DeathPose = EDeathPose::EDP_DeathLeft2;
+			break;
+		default:
+			break;
+		}
+	}
+	else if (AngleOfAttack >= 45.f && AngleOfAttack < 135.f)
+	{
+		int32 const SelectionRight = FMath::RandRange(0, 1);
+		switch (SelectionRight)
+		{
+		case 0:
+			DeathSectionName = FName("DeathRight1");
+			DeathPose = EDeathPose::EDP_DeathRight1;
+			break;
+		case 1:
+			DeathSectionName = FName("DeathRight2");
+			DeathPose = EDeathPose::EDP_DeathRight2;
+			break;
+		default:
+			break;
+		}
+	}
+	return DeathSectionName;
 }
 
 void AEnemy::PlayHitReactMontage(const FName& SectionName)
@@ -86,10 +154,32 @@ void AEnemy::PlayHitReactMontage(const FName& SectionName)
 	}
 }
 
+void AEnemy::PlayDeathMontage(const FName& DeathSectionName)
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && DeathMontage)
+	{
+		AnimInstance->Montage_Play(DeathMontage);
+		AnimInstance->Montage_JumpToSection(DeathSectionName, DeathMontage);
+	}
+}
+
 void AEnemy::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (CombatTarget)
+	{
+		const double DistanceToTarget = (CombatTarget->GetActorLocation() - GetActorLocation()).Size();
+		if (DistanceToTarget > CombatRadius)
+		{
+			CombatTarget = nullptr;
+			if (HealthBarWidget)
+			{
+				HealthBarWidget->SetVisibility(false);
+			}
+		}
+	}
 }
 
 void AEnemy::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -100,13 +190,18 @@ void AEnemy::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 
 void AEnemy::GetHit_Implementation(const FVector& ImpactPoint)
 {
+	if (HealthBarWidget)
+	{
+		HealthBarWidget->SetVisibility(true);
+	}
+
 	if (Attributes && Attributes->IsAlive())
 	{
 		DirectionalHitReact(ImpactPoint);
 	}
 	else
 	{
-		Die(); //To Implement Directional Death Animations
+		Die(ImpactPoint); //To Implement Directional Death Animations
 	}
 
 	if (HitSound)
@@ -166,6 +261,7 @@ float AEnemy::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AC
 		Attributes->RecieveDamage(DamageAmount);
 		HealthBarWidget->SetHealthPercent(Attributes->GetHealthPercent());
 	}
+	CombatTarget = EventInstigator->GetPawn();
+	
 	return DamageAmount;
 }
-
