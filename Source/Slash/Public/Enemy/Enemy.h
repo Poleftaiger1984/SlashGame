@@ -10,6 +10,7 @@
 class UAnimMontage;
 class UAttributeComponent;
 class UHealthBarComponent;
+class AAIController;
 
 UCLASS()
 class SLASH_API AEnemy : public ACharacter, public IHitInterface //Multiple inheritance, a class can have more than one parent
@@ -32,6 +33,8 @@ protected:
 
 	void Die(const FVector& ImpactPoint);
 	FName DirectionalDeathSelection(const FVector& ImpactPoint, FName& DeathSectionName);
+	bool InTargetRange(TObjectPtr<AActor> Target, double Radius);
+
 	/*
 	* Play Montage Functions
 	*/
@@ -41,6 +44,7 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly)
 	EDeathPose DeathPose = EDeathPose::EDP_Alive;
+
 
 private:
 
@@ -69,7 +73,25 @@ private:
 	TObjectPtr<AActor> CombatTarget;
 
 	UPROPERTY(EditAnywhere)
-	double CombatRadius = 500;
+	double CombatRadius = 500.f;
+
+	/*
+	* Navigation
+	*/
+
+	UPROPERTY()
+	TObjectPtr<AAIController> EnemyController;
+
+	//Current Patrol Target
+	UPROPERTY(EditInstanceOnly, Category = "AI Navigation")
+	TObjectPtr<AActor> PatrolTarget;
+
+	UPROPERTY(EditInstanceOnly, Category = "AI Navigation")
+	TArray<TObjectPtr<AActor>> PatrolTargets;
+
+	UPROPERTY(EditAnywhere)
+	double PatrolRadius = 200.f;
+
 public:
 
 };
