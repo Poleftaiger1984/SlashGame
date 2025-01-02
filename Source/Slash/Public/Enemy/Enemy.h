@@ -11,6 +11,7 @@ class UAnimMontage;
 class UAttributeComponent;
 class UHealthBarComponent;
 class AAIController;
+class UPawnSensingComponent;
 
 UCLASS()
 class SLASH_API AEnemy : public ACharacter, public IHitInterface //Multiple inheritance, a class can have more than one parent
@@ -20,6 +21,8 @@ class SLASH_API AEnemy : public ACharacter, public IHitInterface //Multiple inhe
 public:
 	AEnemy();
 	virtual void Tick(float DeltaTime) override;
+	void CheckPatrolTarget();
+	void CheckCombatTarget();
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void GetHit_Implementation(const FVector& ImpactPoint) override; 
 	//_Implementation is the overridable BlueprintNativeEvent function automatically created when we declared it in the HitInterface
@@ -34,6 +37,11 @@ protected:
 	void Die(const FVector& ImpactPoint);
 	FName DirectionalDeathSelection(const FVector& ImpactPoint, FName& DeathSectionName);
 	bool InTargetRange(TObjectPtr<AActor> Target, double Radius);
+	void MoveToTarget(TObjectPtr<AActor> Target);
+	TObjectPtr<AActor> ChoosePatrolTarget();
+
+	UFUNCTION()
+	void PawnSeen(APawn* SeenPawn);
 
 	/*
 	* Play Montage Functions
@@ -48,11 +56,17 @@ protected:
 
 private:
 
+	/*
+	* Components
+	*/
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UAttributeComponent> Attributes;
 
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UHealthBarComponent> HealthBarWidget;
+
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UPawnSensingComponent> PawnSensing;
 
 	/*
 	* Animation Montages
@@ -75,6 +89,9 @@ private:
 	UPROPERTY(EditAnywhere)
 	double CombatRadius = 500.f;
 
+	UPROPERTY(EditAnywhere)
+	double AttackRadius = 150.f;
+
 	/*
 	* Navigation
 	*/
@@ -91,6 +108,17 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	double PatrolRadius = 200.f;
+
+	FTimerHandle PatrolTimer;
+	void PatrolTimerFinished();
+
+	UPROPERTY(EditAnywhere, Category = "AI Navigation")
+	float WaitMin = 5.f;
+
+	UPROPERTY(EditAnywhere, Category = "AI Navigation")
+	float WaitMax = 10.f;
+
+	EEnemyState EnemyState = EEnemyState::EES_Patrolling;
 
 public:
 
