@@ -8,8 +8,6 @@ void AOneHandedWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent,
 {
 	Super::OnSphereOverlap(OverlappedComponent, OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
 		SetWeaponType(EWeaponType::EWP_OneHandedWeapon);
-
-
 }
 
 void AOneHandedWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)

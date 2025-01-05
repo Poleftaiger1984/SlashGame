@@ -21,6 +21,10 @@ AItem::AItem()
 
 	EmbersEffect = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Niagara Component"));
 	EmbersEffect->SetupAttachment(GetRootComponent());
+
+	ItemMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	ItemMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	
 }
 
 // Called when the game starts or when spawned

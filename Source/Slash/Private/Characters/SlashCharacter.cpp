@@ -5,26 +5,30 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "Components/CapsuleComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "GroomComponent.h"
 #include "Items/Item.h"
 #include "Items/Weapons/Weapon.h"
 #include "Animation/AnimMontage.h"
-#include "Components/BoxComponent.h"
-
 #include "Components/InputComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 
 ASlashCharacter::ASlashCharacter()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 400.f, 0.f);
+
+	GetMesh()->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
+	GetMesh()->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldDynamic, ECollisionResponse::ECR_Overlap);
+	GetMesh()->SetGenerateOverlapEvents(true);
 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(GetRootComponent());
@@ -43,6 +47,42 @@ ASlashCharacter::ASlashCharacter()
 	Eyebrows->AttachmentName = FString("head");
 }
 
+void ASlashCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
+	{
+		//Moving
+		EnhancedInputComponent->BindAction(MovementAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Move);
+
+		//Looking
+		EnhancedInputComponent->BindAction(LookAround, ETriggerEvent::Triggered, this, &ASlashCharacter::Look);
+
+		//Jumping
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Jump);
+
+		//Equipping 
+		EnhancedInputComponent->BindAction(EKeyPressedAction, ETriggerEvent::Triggered, this, &ASlashCharacter::EKeyPressed);
+
+		//Attacking
+		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Attack);
+
+		//Equipping
+		EnhancedInputComponent->BindAction(EquipAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Equip);
+
+		//Dropping Weapon
+		EnhancedInputComponent->BindAction(DropWeaponAction, ETriggerEvent::Triggered, this, &ASlashCharacter::DropWeapon);
+	}
+
+}
+
+void ASlashCharacter::GetHit_Implementation(const FVector& ImpactPoint)
+{
+	PlayHitSound(ImpactPoint);
+	SpawnHitParticles(ImpactPoint);
+}
+
 void ASlashCharacter::BeginPlay()
 {
 	Super::BeginPlay();
@@ -55,8 +95,12 @@ void ASlashCharacter::BeginPlay()
 		}
 	}
 
-	Tags.Add(FName("SlashCharacter"));
-	
+	Tags.Add(FName("EngageableTarget"));
+}
+
+void ASlashCharacter::Jump()
+{
+	Super::Jump();
 }
 
 void ASlashCharacter::Move(const FInputActionValue& Value)
@@ -87,7 +131,6 @@ void ASlashCharacter::Look(const FInputActionValue& Value)
 	AddControllerPitchInput(LookAxisValue.Y);
 }
 
-
 void ASlashCharacter::EKeyPressed()
 {
 	AWeapon* OverlappingWeapon = Cast<AWeapon>(OverlappingItem);
@@ -98,9 +141,8 @@ void ASlashCharacter::EKeyPressed()
 		if (!bIsHoldingWeapon && OverlappingWeaponType != EWeaponType::EWP_TwoHandedWeapon)
 		{
 			bIsHoldingWeapon = true;
-			OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocket"), this, this);
+			OverlappingWeapon->Equip(GetMesh(), FName(WeaponSocket), this, this);
 			OverlappingWeapon->SetOwner(this); //Set Weapon Actor owner 
-			OverlappingWeapon->CollisionDisabler();
 			//Changing OverlappingItem to null clearing the pointer so we don't interact twice
 			OverlappingItem = nullptr;
 			//Setting reference to weapon held
@@ -126,7 +168,7 @@ void ASlashCharacter::EKeyPressed()
 			if (!HeldWeapon)
 			{
 				bIsHoldingWeapon = true;
-				OverlappingWeapon->Equip(GetMesh(), FName("RightHandSocketTwoHanded"), this, this);
+				OverlappingWeapon->Equip(GetMesh(), FName(TwoHandedWeaponSocket), this, this);
 				OverlappingWeapon->CollisionDisabler();
 				//Changing OverlappingItem to null clearing the pointer so we don't interact twice
 				OverlappingItem = nullptr;
@@ -150,6 +192,7 @@ void ASlashCharacter::EKeyPressed()
 
 void ASlashCharacter::Attack()
 {
+	Super::Attack();
 	//Refactoring the if conditional into CanAttack
 	if (CanAttack())
 	{
@@ -222,6 +265,11 @@ void ASlashCharacter::DropWeapon()
 	}
 }
 
+void ASlashCharacter::AttackEnd()
+{
+	ActionState = EActionState::EAS_Unoccupied;
+}
+
 bool ASlashCharacter::CanAttack()
 {
 	return ActionState ==
@@ -241,64 +289,6 @@ bool ASlashCharacter::CanArm()
 		CharacterState == ECharacterState::ECS_Unequipped && HeldWeapon;
 }
 
-void ASlashCharacter::Disarm()
-{
-	EWeaponType HeldWeaponType = HeldWeapon->GetWeaponType();
-	//Knife Weapon will be sheathed on the hip of the character therefore a different socket is required
-	if (HeldWeapon && HeldWeaponType != EWeaponType::EWP_SmallWeapon)
-	{
-		HeldWeapon->AttachMeshToSocket(GetMesh(), FName("SpineSocket"));
-	}
-	else if (HeldWeapon && HeldWeaponType == EWeaponType::EWP_SmallWeapon)
-	{
-		HeldWeapon->AttachMeshToSocket(GetMesh(), FName("LowerSpineSocket"));
-	}
-}
-
-void ASlashCharacter::Arm()
-{
-	EWeaponType HeldWeaponType = HeldWeapon->GetWeaponType();
-	if (HeldWeapon && HeldWeaponType != EWeaponType::EWP_TwoHandedWeapon)
-	{
-		HeldWeapon->AttachMeshToSocket(GetMesh(), FName("RightHandSocket"));
-	}
-	else if (HeldWeapon && HeldWeaponType == EWeaponType::EWP_TwoHandedWeapon)
-	{
-		HeldWeapon->AttachMeshToSocket(GetMesh(), FName("RightHandSocketTwoHanded"));
-	}
-}
-
-void ASlashCharacter::FinishEquipping()
-{
-	ActionState = EActionState::EAS_Unoccupied;
-}
-
-void ASlashCharacter::PlayAttackMontage()
-{
-	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	AWeapon* OverlappingWeapon = Cast<AWeapon>(OverlappingItem);
-	AttackMontage = HeldWeapon->GetAttackMontage();
-	if (AnimInstance && AttackMontage)
-	{
-		AnimInstance->Montage_Play(AttackMontage);
-		int32 const Selection = FMath::RandRange(0, 1);
-		FName SectionName = FName();
-		switch (Selection)
-		{
-		case 0:
-			SectionName = FName("Attack1");
-			break;
-		case 1:
-			SectionName = FName("Attack2");
-			break;
-		default:
-			break;
-		}
-		AnimInstance->Montage_JumpToSection(SectionName, AttackMontage);
-
-	}
-}
-
 void ASlashCharacter::PlayEquipMontage(const FName& SectionName)
 {
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
@@ -311,59 +301,35 @@ void ASlashCharacter::PlayEquipMontage(const FName& SectionName)
 	}
 }
 
-void ASlashCharacter::SetWeaponCollisionEnabled(ECollisionEnabled::Type CollisionEnabled)
+void ASlashCharacter::AttachWeaponToBack()
 {
-	if (HeldWeapon && HeldWeapon->GetWeaponBox())
+	EWeaponType HeldWeaponType = HeldWeapon->GetWeaponType();
+	//Knife Weapon will be sheathed on the hip of the character therefore a different socket is required
+	if (HeldWeapon && HeldWeaponType != EWeaponType::EWP_SmallWeapon)
 	{
-		HeldWeapon->GetWeaponBox()->SetCollisionEnabled(CollisionEnabled);
-		HeldWeapon->IgnoreActors.Empty();
+		HeldWeapon->AttachMeshToSocket(GetMesh(), FName(WeaponSheathSocket));
+	}
+	else if (HeldWeapon && HeldWeaponType == EWeaponType::EWP_SmallWeapon)
+	{
+		HeldWeapon->AttachMeshToSocket(GetMesh(), FName(SmallWeaponSheathSocket));
 	}
 }
 
-void ASlashCharacter::AttackEnd()
+void ASlashCharacter::AttachWeaponToHand()
+{
+	EWeaponType HeldWeaponType = HeldWeapon->GetWeaponType();
+	if (HeldWeapon && HeldWeaponType != EWeaponType::EWP_TwoHandedWeapon)
+	{
+		HeldWeapon->AttachMeshToSocket(GetMesh(), FName(WeaponSocket));
+	}
+	else if (HeldWeapon && HeldWeaponType == EWeaponType::EWP_TwoHandedWeapon)
+	{
+		HeldWeapon->AttachMeshToSocket(GetMesh(), FName(TwoHandedWeaponSocket));
+	}
+}
+
+void ASlashCharacter::FinishEquipping()
 {
 	ActionState = EActionState::EAS_Unoccupied;
-}
-
-void ASlashCharacter::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-}
-
-void ASlashCharacter::Jump()
-{
-	Super::Jump();
-
-}
-
-void ASlashCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-	
-	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
-	{
-		//Moving
-		EnhancedInputComponent->BindAction(MovementAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Move);
-
-		//Looking
-		EnhancedInputComponent->BindAction(LookAround, ETriggerEvent::Triggered, this, &ASlashCharacter::Look);
-
-		//Jumping
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Jump);
-
-		//Equipping 
-		EnhancedInputComponent->BindAction(EKeyPressedAction, ETriggerEvent::Triggered, this, &ASlashCharacter::EKeyPressed);
-
-		//Attacking
-		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Attack);
-
-		//Equipping
-		EnhancedInputComponent->BindAction(EquipAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Equip);
-
-		//Dropping Weapon
-		EnhancedInputComponent->BindAction(DropWeaponAction, ETriggerEvent::Triggered, this, &ASlashCharacter::DropWeapon);
-	}
-
 }
 

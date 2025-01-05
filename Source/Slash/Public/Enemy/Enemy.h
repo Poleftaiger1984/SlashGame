@@ -3,64 +3,78 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Character.h"
-#include "Interfaces/HitInterface.h"
+#include "Characters/BaseCharacter.h"
 #include "Enemy.generated.h"
 
-class UAnimMontage;
-class UAttributeComponent;
 class UHealthBarComponent;
 class AAIController;
 class UPawnSensingComponent;
 
 UCLASS()
-class SLASH_API AEnemy : public ACharacter, public IHitInterface //Multiple inheritance, a class can have more than one parent
+class SLASH_API AEnemy : public ABaseCharacter
 {
 	GENERATED_BODY()
 
 public:
 	AEnemy();
-	virtual void Tick(float DeltaTime) override;
-	void CheckPatrolTarget();
-	void CheckCombatTarget();
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	virtual void GetHit_Implementation(const FVector& ImpactPoint) override; 
-	//_Implementation is the overridable BlueprintNativeEvent function automatically created when we declared it in the HitInterface
-	void DirectionalHitReact(const FVector& ImpactPoint);
 	
+	/* <AActor> */
+	virtual void Tick(float DeltaTime) override;
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
+	virtual void Destroyed() override;
+	/* <AActor> */
+
+	/* <IHitInterface> */
+	virtual void GetHit_Implementation(const FVector& ImpactPoint) override;
+	//_Implementation is the overridable BlueprintNativeEvent function automatically created when we declared it in the HitInterface
+	/* <IHitInterface> */
 
 
 protected:
+	/* <AActor> */
 	virtual void BeginPlay() override;
+	/* <AActor> */
+	
+	/* <ABaseCharacter> */
+	virtual void Die(const FVector& ImpactPoint) override;
+	virtual void Attack() override;
+	virtual bool CanAttack() override;
+	virtual void AttackEnd() override;
+	virtual void HandleDamage(float DamageAmount) override;
+	//virtual void PlayDeathMontage() override;
+	/* <ABaseCharacter> */
 
-	void Die(const FVector& ImpactPoint);
-	FName DirectionalDeathSelection(const FVector& ImpactPoint, FName& DeathSectionName);
+	UPROPERTY(BlueprintReadOnly)
+	EEnemyState EnemyState = EEnemyState::EES_Patrolling;
+
+private:
+	/* AI Behavior */
+	void InitializeEnemy();
+	void CheckCombatTarget();
+	void CheckPatrolTarget();
+	void PatrolTimerFinished();
+	void HideHealthBar();
+	void ShowHealthBar();
+	void LoseInterest();
+	void StartPatrolling();
+	bool IsOutsideCombatRadius();
+	void ChaseTarget();
+	bool IsOutsideAttackRadius();
+	bool IsChasing();
+	bool IsInsideAttackRadius();
+	bool IsAttacking();
+	bool IsDead();
+	bool IsEngaged();
+	void ClearPatrolTimer();
+	void StartAttackTimer();
+	void ClearAttackTimer();
 	bool InTargetRange(TObjectPtr<AActor> Target, double Radius);
 	void MoveToTarget(TObjectPtr<AActor> Target);
 	TObjectPtr<AActor> ChoosePatrolTarget();
+	void SpawnDefaultWeapon();
 
 	UFUNCTION()
-	void PawnSeen(APawn* SeenPawn);
-
-	/*
-	* Play Montage Functions
-	*/
-	void PlayHitReactMontage(const FName& SectionName);
-	void PlayDeathMontage(const FName& DeathSectionName);
-
-
-	UPROPERTY(BlueprintReadOnly)
-	EDeathPose DeathPose = EDeathPose::EDP_Alive;
-
-
-private:
-
-	/*
-	* Components
-	*/
-	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<UAttributeComponent> Attributes;
+	void PawnSeen(APawn* SeenPawn); // Callback for OnPawnSeen in UPawnSensingComponent
 
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UHealthBarComponent> HealthBarWidget;
@@ -68,33 +82,17 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UPawnSensingComponent> PawnSensing;
 
-	/*
-	* Animation Montages
-	*/
-	UPROPERTY(EditDefaultsOnly, Category = "Montages")
-	TObjectPtr<UAnimMontage> HitReactMontage;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Montages")
-	TObjectPtr<UAnimMontage> DeathMontage;
-
-	UPROPERTY(EditAnywhere, Category = "Audio")
-	TObjectPtr<USoundBase> HitSound;
-
-	UPROPERTY(EditAnywhere, Category = "Visual Effects")
-	TObjectPtr<UParticleSystem> HitParticles;
-
 	UPROPERTY()
 	TObjectPtr<AActor> CombatTarget;
 
 	UPROPERTY(EditAnywhere)
-	double CombatRadius = 500.f;
+	TSubclassOf<class AWeapon> WeaponClass;
+
+	UPROPERTY(EditAnywhere)
+	double CombatRadius = 1000.f;
 
 	UPROPERTY(EditAnywhere)
 	double AttackRadius = 150.f;
-
-	/*
-	* Navigation
-	*/
 
 	UPROPERTY()
 	TObjectPtr<AAIController> EnemyController;
@@ -110,16 +108,27 @@ private:
 	double PatrolRadius = 200.f;
 
 	FTimerHandle PatrolTimer;
-	void PatrolTimerFinished();
 
 	UPROPERTY(EditAnywhere, Category = "AI Navigation")
-	float WaitMin = 5.f;
+	float PatrolWaitMin = 5.f;
 
 	UPROPERTY(EditAnywhere, Category = "AI Navigation")
-	float WaitMax = 10.f;
+	float PatrolWaitMax = 10.f;
 
-	EEnemyState EnemyState = EEnemyState::EES_Patrolling;
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	float PatrollingSpeed = 125.f;
 
-public:
+	FTimerHandle AttackTimer;
 
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	float AttackMin = 0.5f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	float AttackMax = 1.f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	float ChasingSpeed = 300.f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	float DeathLifeSpan = 8.f;
 };

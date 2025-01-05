@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Character.h"
+#include "BaseCharacter.h"
 #include "InputActionValue.h" 
 #include "CharacterTypes.h"
 #include "SlashCharacter.generated.h"
@@ -14,28 +14,46 @@ class UCameraComponent;
 class USpringArmComponent;
 class UGroomComponent;
 class AItem;
-class AWeapon;
 class UAnimMontage;
 
 UCLASS()
-class SLASH_API ASlashCharacter : public ACharacter
+class SLASH_API ASlashCharacter : public ABaseCharacter
 {
 	GENERATED_BODY()
 
 public:
 	ASlashCharacter();
-
-	virtual void Tick(float DeltaTime) override;
-	virtual void Jump() override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
-	UFUNCTION(BlueprintCallable)
-	void SetWeaponCollisionEnabled(ECollisionEnabled::Type CollisionEnabled);
-
-
+	virtual void GetHit_Implementation(const FVector& ImpactPoint) override;
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void Jump() override;
+
+	/* Callbacks for input  */
+	void Move(const FInputActionValue& Value);
+	void Look(const FInputActionValue& Value);
+	void EKeyPressed();
+	virtual void Attack() override;
+	void Equip();
+	void DropWeapon();
+
+	/* Combat */
+	virtual void AttackEnd() override;
+	virtual bool CanAttack() override;
+	bool CanDisarm();
+	bool CanArm();
+	void PlayEquipMontage(const FName& SectionName);
+	
+
+	UFUNCTION(BlueprintCallable)
+	void AttachWeaponToBack();
+
+	UFUNCTION(BlueprintCallable)
+	void AttachWeaponToHand();
+
+	UFUNCTION(BlueprintCallable)
+	void FinishEquipping();
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputMappingContext> SlashContext;
@@ -60,45 +78,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> DropWeaponAction;
-	
-
-	/*
-	* Callbacks for input 
-	*/
-	void Move(const FInputActionValue& Value);
-	void Look(const FInputActionValue& Value);
-	void EKeyPressed();
-	void Attack();
-	void Equip();
-	void DropWeapon();
-
-	/*
-	* Play Montage Functions
-	*/
-	void PlayAttackMontage();
-	UFUNCTION(BlueprintCallable)
-	void AttackEnd();
-	bool CanAttack();
-
-	void PlayEquipMontage(const FName& SectionName);
-	bool CanDisarm();
-	bool CanArm();
-
-	UFUNCTION(BlueprintCallable)
-	void Disarm();
-	UFUNCTION(BlueprintCallable)
-	void Arm();
-
-	UFUNCTION(BlueprintCallable)
-	void FinishEquipping();
 
 private:
-
-	ECharacterState CharacterState = ECharacterState::ECS_Unequipped;
-
-	UPROPERTY(BlueprintReadWrite, Category = "Montages", meta = (AllowPrivateAccess = "true"))
-	EActionState ActionState = EActionState::EAS_Unoccupied;
-
+	/* Character Components */
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UCameraComponent> ViewCamera;
 
@@ -114,18 +96,25 @@ private:
 	UPROPERTY(VisibleInstanceOnly)
 	TObjectPtr<AItem> OverlappingItem;
 
-	UPROPERTY(VisibleAnywhere, Category = "VALUE")
-	TObjectPtr<AWeapon> HeldWeapon; //Reference to currently held weapon
-	bool bIsHoldingWeapon;
-
-	/*
-	* Animation Montages
-	*/
-	UPROPERTY(EditDefaultsOnly, Category = "Montages")
-	TObjectPtr<UAnimMontage> AttackMontage;
-
 	UPROPERTY(EditDefaultsOnly, Category = "Montages")
 	TObjectPtr<UAnimMontage> EquipMontage;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	FName WeaponSocket;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	FName TwoHandedWeaponSocket;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	FName WeaponSheathSocket;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	FName SmallWeaponSheathSocket;
+
+	ECharacterState CharacterState = ECharacterState::ECS_Unequipped;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Montages", meta = (AllowPrivateAccess = "true"))
+	EActionState ActionState = EActionState::EAS_Unoccupied;
 
 public:
 	/*Inline functions are more optimized as compilers take the code as is and paste it wherever the function is called

@@ -20,6 +20,10 @@ public:
 	AWeapon();
 	void Equip(TObjectPtr<USceneComponent> InParent, FName InSocketName, TObjectPtr<AActor> NewOwner, TObjectPtr<APawn> NewInstigator);
 
+	void DeactivateEmbers();
+
+	void PlayEquipSound();
+
 	void AttachMeshToSocket(TObjectPtr<USceneComponent> InParent, const FName InSocketName);
 
 	//void IsAttachedToPlayer(TObjectPtr<AActor> Parent, TObjectPtr<AItem> ItemBeingChecked);
@@ -30,6 +34,7 @@ public:
 
 	TObjectPtr<UAnimMontage> GetAttackMontage() const;
 	TObjectPtr<UAnimMontage> GetEquipMontage() const;
+	TArray<FName> GetAttackSections() const;
 	void CollisionDisabler();
 	void CollisionEnabler();
 	void EmbersActivate();
@@ -42,15 +47,18 @@ protected:
 	
 	EWeaponType WeaponClass;
 
-	virtual void OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) override;
-
-	virtual void OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex) override;
-
 	UFUNCTION()
 	void OnBoxOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
+	bool ActorIsSameType(AActor* OtherActor);
+
+	void ExecuteGetHit(FHitResult& BoxHit);
+
 	UPROPERTY(EditDefaultsOnly, Category = "Montages")
 	TObjectPtr<UAnimMontage> AttackMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	TArray<FName> AttackMontageSections;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Montages")
 	TObjectPtr<UAnimMontage> EquipMontage;
@@ -59,6 +67,14 @@ protected:
 	void CreateFields(const FVector& FieldLocation);
 
 private:
+
+	void BoxTrace(FHitResult& BoxHit);
+
+	UPROPERTY(EditAnywhere, Category = "WeaponProperties")
+	FVector BoxTraceExtent = FVector(8.f);
+	
+	UPROPERTY(EditAnywhere, Category = "WeaponProperties")
+	bool bShowBoxDebug = false;
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	TObjectPtr<USoundBase> EquipSound;

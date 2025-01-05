@@ -8,8 +8,6 @@ void ASmallWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AAc
 {
 	Super::OnSphereOverlap(OverlappedComponent, OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
 		SetWeaponType(EWeaponType::EWP_SmallWeapon);
-
-	
 }
 
 void ASmallWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)

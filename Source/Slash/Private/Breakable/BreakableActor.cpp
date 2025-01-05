@@ -15,6 +15,7 @@ ABreakableActor::ABreakableActor()
 	GeometryCollection->SetGenerateOverlapEvents(true);
 	GeometryCollection->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	GeometryCollection->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
+	GeometryCollection->SetSimulatePhysics(false);
 
 	Capsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("Capsule"));
 	Capsule->SetupAttachment(GetRootComponent());
@@ -38,6 +39,7 @@ void ABreakableActor::GetHit_Implementation(const FVector& ImpactPoint)
 {
 	if (bBroken) return; //Safeguard in order to no break a second time
 
+	GeometryCollection->SetSimulatePhysics(true);
 	bBroken = true;
 	//We pass a UClass pointer which is set in the Blueprint
 	UWorld* World = GetWorld();
