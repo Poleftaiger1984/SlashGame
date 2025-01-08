@@ -28,7 +28,7 @@ public:
 
 	//void IsAttachedToPlayer(TObjectPtr<AActor> Parent, TObjectPtr<AItem> ItemBeingChecked);
 	
-	virtual EWeaponType GetWeaponType();
+	EWeaponType GetWeaponType();
 
 	void SetWeaponType(EWeaponType NewWeaponType);
 
@@ -73,7 +73,7 @@ private:
 	UPROPERTY(EditAnywhere, Category = "WeaponProperties")
 	FVector BoxTraceExtent = FVector(8.f);
 	
-	UPROPERTY(EditAnywhere, Category = "WeaponProperties")
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	bool bShowBoxDebug = false;
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")

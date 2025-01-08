@@ -25,10 +25,13 @@ public:
 	/* <AActor> */
 
 	/* <IHitInterface> */
-	virtual void GetHit_Implementation(const FVector& ImpactPoint) override;
+	virtual void GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
 	//_Implementation is the overridable BlueprintNativeEvent function automatically created when we declared it in the HitInterface
 	/* <IHitInterface> */
 
+	void OverlayToggleOn();
+	void OverlayToggleOff();
+	EEnemyState GetEnemyState() const;
 
 protected:
 	/* <AActor> */
@@ -67,6 +70,7 @@ private:
 	bool IsEngaged();
 	void ClearPatrolTimer();
 	void StartAttackTimer();
+	void StartOverlayTimer();
 	void ClearAttackTimer();
 	bool InTargetRange(TObjectPtr<AActor> Target, double Radius);
 	void MoveToTarget(TObjectPtr<AActor> Target);
@@ -81,9 +85,6 @@ private:
 
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UPawnSensingComponent> PawnSensing;
-
-	UPROPERTY()
-	TObjectPtr<AActor> CombatTarget;
 
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<class AWeapon> WeaponClass;
@@ -131,4 +132,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	float DeathLifeSpan = 8.f;
+
+	FTimerHandle OverlayTimer;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	float OverlayLifeSpan = 5.f;
 };

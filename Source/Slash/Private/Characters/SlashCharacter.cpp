@@ -9,10 +9,13 @@
 #include "GroomComponent.h"
 #include "Items/Item.h"
 #include "Items/Weapons/Weapon.h"
+#include "Enemy/Enemy.h"
 #include "Animation/AnimMontage.h"
 #include "Components/InputComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/KismetMathLibrary.h"
 
 ASlashCharacter::ASlashCharacter()
 {
@@ -73,14 +76,30 @@ void ASlashCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 		//Dropping Weapon
 		EnhancedInputComponent->BindAction(DropWeaponAction, ETriggerEvent::Triggered, this, &ASlashCharacter::DropWeapon);
+
+		//Locking onto Target
+		EnhancedInputComponent->BindAction(LockOnTargetAction, ETriggerEvent::Triggered, this, &ASlashCharacter::LockOnTarget);
 	}
 
 }
 
-void ASlashCharacter::GetHit_Implementation(const FVector& ImpactPoint)
+void ASlashCharacter::GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter)
 {
-	PlayHitSound(ImpactPoint);
-	SpawnHitParticles(ImpactPoint);
+	Super::GetHit_Implementation(ImpactPoint, Hitter);
+
+	ActionState = EActionState::EAS_HitReaction;
+	SetWeaponCollisionEnabled(ECollisionEnabled::NoCollision);
+}
+
+void ASlashCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (IsLockedOn)
+	{
+		LockViewOnTarget(DeltaTime);
+		CombatTargetStatus();
+	}
 }
 
 void ASlashCharacter::BeginPlay()
@@ -199,7 +218,6 @@ void ASlashCharacter::Attack()
 		//Instead of having a block of code in Attack() to handle the attack montage we refactor the attack montage handling to a new function
 		PlayAttackMontage();
 		ActionState = EActionState::EAS_Attacking;
-
 	}
 }
 
@@ -265,6 +283,40 @@ void ASlashCharacter::DropWeapon()
 	}
 }
 
+void ASlashCharacter::LockOnTarget(const FInputActionValue& Value)
+{
+	if (CombatTarget == nullptr)
+	{
+		FHitResult LineTraceHit;
+		TargetLockTrace(LineTraceHit);
+
+		AActor* ActorHit = LineTraceHit.GetActor();
+		UE_LOG(LogTemp, Warning, TEXT("Holding"));
+
+		if (ActorHit)
+		{
+			bool IsActorAnEnemy = ActorHit->ActorHasTag(TEXT("Enemy"));
+			if (IsActorAnEnemy)
+			{
+				EnemyEngaged = Cast<AEnemy>(ActorHit);
+				if (EnemyEngaged)
+				{
+					EnemyEngaged->OverlayToggleOn();
+					CombatTarget = EnemyEngaged;
+					IgnoreActors.Empty();
+					IsLockedOn = true;
+				}
+			}
+		}
+	}
+	else if (CombatTarget != nullptr)
+	{
+		CombatTarget = nullptr;
+		IsLockedOn = false;
+		EnemyEngaged = nullptr;
+	}
+}
+
 void ASlashCharacter::AttackEnd()
 {
 	ActionState = EActionState::EAS_Unoccupied;
@@ -272,8 +324,7 @@ void ASlashCharacter::AttackEnd()
 
 bool ASlashCharacter::CanAttack()
 {
-	return ActionState ==
-		EActionState::EAS_Unoccupied &&
+	return ActionState == EActionState::EAS_Unoccupied &&
 		CharacterState != ECharacterState::ECS_Unequipped;
 }
 
@@ -300,6 +351,85 @@ void ASlashCharacter::PlayEquipMontage(const FName& SectionName)
 		AnimInstance->Montage_JumpToSection(SectionName, EquipMontage);
 	}
 }
+
+void ASlashCharacter::TargetLockTrace(FHitResult& LineTraceHit)
+{
+	const FVector Start = ViewCamera->GetComponentLocation();
+	const FVector End = Start + (ViewCamera->GetForwardVector() * LockOnRange);
+
+	TArray<AActor*> ActorsToIgnore;
+	ActorsToIgnore.Add(this);
+	for (AActor* Actor : IgnoreActors)
+	{
+		ActorsToIgnore.AddUnique(Actor);
+	}
+	
+	UKismetSystemLibrary::LineTraceSingle(this, Start, End, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, bShowLineDebug ? EDrawDebugTrace::ForDuration : EDrawDebugTrace::None, LineTraceHit, true);
+	IgnoreActors.AddUnique(LineTraceHit.GetActor());
+	
+}
+
+void ASlashCharacter::CombatTargetStatus()
+{
+	if (EnemyEngaged)
+	{
+		EEnemyState EngagedEnemyState = EnemyEngaged->GetEnemyState();
+		if (EngagedEnemyState == EEnemyState::EES_Dead)
+		{
+			CombatTarget = nullptr;
+			EnemyEngaged = nullptr;
+			IsLockedOn = false;
+			UE_LOG(LogTemp, Warning, TEXT("Combat Target Dead"));
+		}
+	}
+}
+
+void ASlashCharacter::LockViewOnTarget(float DeltaTime)
+{
+	//if (EnemyEngaged && ViewCamera)
+	//{
+		const FRotator CameraRotation = GetControlRotation();
+		const FRotator EnemyRotation = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), EnemyEngaged->GetActorLocation());
+
+	//	FVector CameraVector = CameraRotation.Vector();
+	//	CameraVector.Normalize();
+	//	FVector EnemyVector = EnemyRotation.Vector();
+	//	EnemyVector.Normalize();
+
+	//	float DotProduct = FVector::DotProduct(CameraVector, EnemyVector);
+
+	//	//Change angle to radians
+	//	float AngleInRadians = FMath::Acos(DotProduct);
+	//	//Change angle to degrees
+	//	float AngleInDegrees = FMath::RadiansToDegrees(AngleInRadians);
+
+	//	if (AngleInDegrees > LockOnFieldOfView)
+	//	{
+	//		IsAdjustingCamera = true;
+	//		StartCameraAdjustingTimer();
+	//	}
+	//	if (IsAdjustingCamera)
+	//	{
+			const FRotator CameraRotator = FRotator(CameraRotation.Pitch, EnemyRotation.Yaw, CameraRotation.Roll);
+			const FRotator FinalRotator = UKismetMathLibrary::RInterpTo(CameraRotation, CameraRotator, DeltaTime, ViewInterpolationSpeed);
+			Controller->SetControlRotation(FinalRotator);
+			UE_LOG(LogTemp, Warning, TEXT("Adjusting Camera"));
+		//}
+
+	//}
+}
+
+void ASlashCharacter::StartCameraAdjustingTimer()
+{
+	GetWorldTimerManager().SetTimer(AdjustCameraTimer, this, &ASlashCharacter::AdjustCamera, CameraAdjustingTime);
+}
+
+void ASlashCharacter::AdjustCamera()
+{
+	IsAdjustingCamera = false;
+	GetWorldTimerManager().ClearTimer(AdjustCameraTimer);
+}
+
 
 void ASlashCharacter::AttachWeaponToBack()
 {
@@ -329,6 +459,11 @@ void ASlashCharacter::AttachWeaponToHand()
 }
 
 void ASlashCharacter::FinishEquipping()
+{
+	ActionState = EActionState::EAS_Unoccupied;
+}
+
+void ASlashCharacter::HitReactEnd()
 {
 	ActionState = EActionState::EAS_Unoccupied;
 }

@@ -54,7 +54,14 @@ float AEnemy::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AC
 {
 	HandleDamage(DamageAmount);
 	CombatTarget = EventInstigator->GetPawn();
-	ChaseTarget();
+	if (IsInsideAttackRadius())
+	{
+		EnemyState = EEnemyState::EES_Attacking;
+	}
+	else if (IsOutsideAttackRadius())
+	{
+		ChaseTarget();
+	}
 	return DamageAmount;
 }
 
@@ -66,18 +73,30 @@ void AEnemy::Destroyed()
 	}
 }
 
-void AEnemy::GetHit_Implementation(const FVector& ImpactPoint)
+void AEnemy::GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter)
 {
-	ShowHealthBar();
+	Super::GetHit_Implementation(ImpactPoint, Hitter);
+	if(!IsDead()) ShowHealthBar();
+	ClearPatrolTimer();
+	ClearAttackTimer();
+	StopAttackMontage();
+	SetWeaponCollisionEnabled(ECollisionEnabled::NoCollision);
+}
 
-	if (IsAlive())
-	{
-		DirectionalHitReact(ImpactPoint);
-	}
-	else Die(ImpactPoint);
+void AEnemy::OverlayToggleOn()
+{
+	GetMesh()->SetOverlayMaterial(CombatOverlay);
+	StartOverlayTimer();
+}
 
-	PlayHitSound(ImpactPoint);
-	SpawnHitParticles(ImpactPoint);
+void AEnemy::OverlayToggleOff()
+{
+	GetMesh()->SetOverlayMaterial(nullptr);
+}
+
+EEnemyState AEnemy::GetEnemyState() const
+{
+	return EnemyState;
 }
 
 void AEnemy::BeginPlay()
@@ -92,14 +111,15 @@ void AEnemy::BeginPlay()
 void AEnemy::Die(const FVector& ImpactPoint)
 {
 	//FName DeathSectionName = DirectionalDeathSelection(ImpactPoint, DeathSectionName);
+	Super::Die(ImpactPoint);
 	EnemyState = EEnemyState::EES_Dead;
 	ClearAttackTimer();
 	ClearPatrolTimer();
-	DirectionalDeathSelection(ImpactPoint);
 	HideHealthBar();
 	DisableCapsule();
 	SetLifeSpan(DeathLifeSpan);
 	GetCharacterMovement()->bOrientRotationToMovement = false;
+	SetWeaponCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 void AEnemy::Attack()
@@ -266,6 +286,11 @@ void AEnemy::StartAttackTimer()
 	EnemyState = EEnemyState::EES_Attacking;
 	const float AttackTime = FMath::RandRange(AttackMin, AttackMax);
 	GetWorldTimerManager().SetTimer(AttackTimer, this, &AEnemy::Attack, AttackTime);
+}
+
+void AEnemy::StartOverlayTimer()
+{
+	GetWorldTimerManager().SetTimer(OverlayTimer, this, &AEnemy::OverlayToggleOff, OverlayLifeSpan);
 }
 
 void AEnemy::ClearAttackTimer()

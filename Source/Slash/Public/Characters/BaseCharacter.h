@@ -23,7 +23,9 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
 
+	/* Combat */
 	virtual void Attack();
 	virtual void Die(const FVector& ImpactPoint);
 	void DirectionalHitReact(const FVector& ImpactPoint);
@@ -35,10 +37,19 @@ protected:
 	virtual bool CanAttack();
 	bool IsAlive();
 
+	/* Montage */
 	void PlayHitReactMontage(const FName& SectionName);
 	void PlayDeathMontage(const FName& DeathSectionName);
 	virtual int32 PlayAttackMontage();
+	void StopAttackMontage();
+	void ClearAttackMontage();
 	//virtual int32 PlayDeathMontage();
+
+	UFUNCTION(BlueprintCallable)
+	FVector GetTranslationWarpTarget();
+
+	UFUNCTION(BlueprintCallable)
+	FVector GetRotationWarpTarget();
 
 	UFUNCTION(BlueprintCallable)
 	virtual void AttackEnd();
@@ -55,6 +66,15 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly)
 	EDeathPose DeathPose = EDeathPose::EDP_DeathBack1;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Combat")
+	TObjectPtr<AActor> CombatTarget;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	double WarpTargetDistance = 75.f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	UMaterialInterface* CombatOverlay;
 
 private:
 	void PlayMontageSection(TObjectPtr<UAnimMontage> AnimMontage, const FName& SectionName);

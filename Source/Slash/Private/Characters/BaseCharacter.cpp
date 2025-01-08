@@ -21,6 +21,18 @@ void ABaseCharacter::BeginPlay()
 	Super::BeginPlay();
 }
 
+void ABaseCharacter::GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter)
+{
+	if (IsAlive() && Hitter)
+	{
+		DirectionalHitReact(Hitter->GetActorLocation());
+	}
+	else if(Hitter) Die(Hitter->GetActorLocation());
+
+	PlayHitSound(ImpactPoint);
+	SpawnHitParticles(ImpactPoint);
+}
+
 void ABaseCharacter::Attack()
 {
 
@@ -28,6 +40,7 @@ void ABaseCharacter::Attack()
 
 void ABaseCharacter::Die(const FVector& ImpactPoint)
 {
+	DirectionalDeathSelection(ImpactPoint);
 }
 
 void ABaseCharacter::PlayHitReactMontage(const FName& SectionName)
@@ -111,16 +124,16 @@ void ABaseCharacter::DirectionalDeathSelection(const FVector& ImpactPoint)
 	switch (SelectionBack)
 	{
 	case 0:
-		DeathSectionName = FName("DeathBack1");
-		DeathPose = EDeathPose::EDP_DeathBack1;
+		DeathSectionName = FName("DeathForward1");
+		DeathPose = EDeathPose::EDP_DeathForward1;
 		break;
 	case 1:
-		DeathSectionName = FName("DeathBack2");
-		DeathPose = EDeathPose::EDP_DeathBack2;
+		DeathSectionName = FName("DeathForward2");
+		DeathPose = EDeathPose::EDP_DeathForward2;
 		break;
 	case 2:
-		DeathSectionName = FName("DeathBack3");
-		DeathPose = EDeathPose::EDP_DeathBack3;
+		DeathSectionName = FName("DeathForward3");
+		DeathPose = EDeathPose::EDP_DeathForward3;
 		break;
 	default:
 		break;
@@ -132,16 +145,16 @@ void ABaseCharacter::DirectionalDeathSelection(const FVector& ImpactPoint)
 		switch (SelectionForward)
 		{
 		case 0:
-			DeathSectionName = FName("DeathForward1");
-			DeathPose = EDeathPose::EDP_DeathForward1;
+			DeathSectionName = FName("DeathBack1");
+			DeathPose = EDeathPose::EDP_DeathBack1;
 			break;
 		case 1:
-			DeathSectionName = FName("DeathForward2");
-			DeathPose = EDeathPose::EDP_DeathForward2;
+			DeathSectionName = FName("DeathBack2");
+			DeathPose = EDeathPose::EDP_DeathBack2;
 			break;
 		case 2:
-			DeathSectionName = FName("DeathForward3");
-			DeathPose = EDeathPose::EDP_DeathForward3;
+			DeathSectionName = FName("DeathBack3");
+			DeathPose = EDeathPose::EDP_DeathBack3;
 		default:
 			break;
 		}
@@ -152,12 +165,12 @@ void ABaseCharacter::DirectionalDeathSelection(const FVector& ImpactPoint)
 		switch (SelectionLeft)
 		{
 		case 0:
-			DeathSectionName = FName("DeathLeft1");
-			DeathPose = EDeathPose::EDP_DeathLeft1;
+			DeathSectionName = FName("DeathRight1");
+			DeathPose = EDeathPose::EDP_DeathRight1;
 			break;
 		case 1:
-			DeathSectionName = FName("DeathLeft2");
-			DeathPose = EDeathPose::EDP_DeathLeft2;
+			DeathSectionName = FName("DeathRight2");
+			DeathPose = EDeathPose::EDP_DeathRight2;
 			break;
 		default:
 			break;
@@ -169,12 +182,12 @@ void ABaseCharacter::DirectionalDeathSelection(const FVector& ImpactPoint)
 		switch (SelectionRight)
 		{
 		case 0:
-			DeathSectionName = FName("DeathRight1");
-			DeathPose = EDeathPose::EDP_DeathRight1;
+			DeathSectionName = FName("DeathLeft1");
+			DeathPose = EDeathPose::EDP_DeathLeft1;
 			break;
 		case 1:
-			DeathSectionName = FName("DeathRight2");
-			DeathPose = EDeathPose::EDP_DeathRight2;
+			DeathSectionName = FName("DeathLeft2");
+			DeathPose = EDeathPose::EDP_DeathLeft2;
 			break;
 		default:
 			break;
@@ -239,17 +252,55 @@ void ABaseCharacter::DisableCapsule()
 
 int32 ABaseCharacter::PlayAttackMontage()
 {
-	if (AttackMontage == nullptr)
+	AActor* WeaponOwner = HeldWeapon->GetOwner();
+	if (WeaponOwner->ActorHasTag(TEXT("EngageableTarget")))
 	{
 		AttackMontage = HeldWeapon->GetAttackMontage();
 		AttackMontageSections = HeldWeapon->GetAttackSections();
 		return PlayRandomMontageSection(AttackMontage, AttackMontageSections);
 	}
-	else 
+	else if (WeaponOwner->ActorHasTag(TEXT("Enemy")))
 	{
 		return PlayRandomMontageSection(AttackMontage, AttackMontageSections);
 	}
+	else
+		return PlayRandomMontageSection(AttackMontage, AttackMontageSections);
+}
+
+void ABaseCharacter::StopAttackMontage()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance)
+	{
+		AnimInstance->Montage_Stop(0.25f, AttackMontage);
+	}
+}
+
+void ABaseCharacter::ClearAttackMontage()
+{
+	AttackMontage == nullptr;
+}
+
+FVector ABaseCharacter::GetTranslationWarpTarget()
+{
+	if(CombatTarget == nullptr) return FVector();
+
+	const FVector CombatTargetLocation = CombatTarget->GetActorLocation();
+	const FVector Location = GetActorLocation();
+
+	FVector TargetToMe = (Location - CombatTargetLocation).GetSafeNormal();
+	TargetToMe *= WarpTargetDistance;
 	
+	return CombatTargetLocation + TargetToMe;
+}
+
+FVector ABaseCharacter::GetRotationWarpTarget()
+{
+	if (CombatTarget)
+	{
+		return CombatTarget->GetActorLocation();
+	}
+	return FVector();
 }
 
 bool ABaseCharacter::CanAttack()

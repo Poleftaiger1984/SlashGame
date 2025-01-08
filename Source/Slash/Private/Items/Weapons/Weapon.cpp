@@ -130,7 +130,7 @@ void AWeapon::ExecuteGetHit(FHitResult& BoxHit)
 	if (HitInterface)
 	{
 		// Execute_GetHit is automatically generated and is the only way to call a BlueprintNativeFunction in C++
-		HitInterface->Execute_GetHit(BoxHit.GetActor(), BoxHit.ImpactPoint);
+		HitInterface->Execute_GetHit(BoxHit.GetActor(), BoxHit.ImpactPoint, GetOwner());
 	}
 }
 

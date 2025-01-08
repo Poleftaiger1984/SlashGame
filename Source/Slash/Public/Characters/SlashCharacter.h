@@ -15,6 +15,7 @@ class USpringArmComponent;
 class UGroomComponent;
 class AItem;
 class UAnimMontage;
+class AEnemy;
 
 UCLASS()
 class SLASH_API ASlashCharacter : public ABaseCharacter
@@ -24,7 +25,9 @@ class SLASH_API ASlashCharacter : public ABaseCharacter
 public:
 	ASlashCharacter();
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	virtual void GetHit_Implementation(const FVector& ImpactPoint) override;
+	virtual void GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
+
+	virtual void Tick(float DeltaTime) override;
 
 protected:
 	virtual void BeginPlay() override;
@@ -37,6 +40,7 @@ protected:
 	virtual void Attack() override;
 	void Equip();
 	void DropWeapon();
+	void LockOnTarget(const FInputActionValue& Value);
 
 	/* Combat */
 	virtual void AttackEnd() override;
@@ -44,7 +48,11 @@ protected:
 	bool CanDisarm();
 	bool CanArm();
 	void PlayEquipMontage(const FName& SectionName);
-	
+	void TargetLockTrace(FHitResult& LineTraceHit);	
+	void CombatTargetStatus();
+	void LockViewOnTarget(float DeltaTime);
+	void StartCameraAdjustingTimer();
+	void AdjustCamera();
 
 	UFUNCTION(BlueprintCallable)
 	void AttachWeaponToBack();
@@ -54,6 +62,9 @@ protected:
 
 	UFUNCTION(BlueprintCallable)
 	void FinishEquipping();
+
+	UFUNCTION(BlueprintCallable)
+	void HitReactEnd();
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputMappingContext> SlashContext;
@@ -78,6 +89,33 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> DropWeaponAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> LockOnTargetAction;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	float LockOnRange = 100.f;
+
+	TArray<TObjectPtr<AActor>> IgnoreActors;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	bool bShowLineDebug = false;
+
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<AEnemy> EnemyEngaged; //Reference to enemy actively engaged in combat with
+
+	bool IsLockedOn = false;
+	bool IsAdjustingCamera = false;
+	FTimerHandle AdjustCameraTimer;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	float LockOnFieldOfView = 100.f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	float CameraAdjustingTime = 10.f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	float ViewInterpolationSpeed = 10.f;
 
 private:
 	/* Character Components */
