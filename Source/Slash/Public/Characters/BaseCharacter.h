@@ -30,12 +30,15 @@ protected:
 	virtual void Die(const FVector& ImpactPoint);
 	void DirectionalHitReact(const FVector& ImpactPoint);
 	void DirectionalDeathSelection(const FVector& ImpactPoint);
+	void ChooseDeathPose(double Angle, int32 Selection);
+	bool IsValidDeathPose(uint8 Value);
 	virtual void HandleDamage(float DamageAmount);
 	void PlayHitSound(const FVector& ImpactPoint);
 	void SpawnHitParticles(const FVector& ImpactPoint);
 	void DisableCapsule();
 	virtual bool CanAttack();
 	bool IsAlive();
+	void DisableMeshCollision();
 
 	/* Montage */
 	void PlayHitReactMontage(const FName& SectionName);
@@ -65,7 +68,7 @@ protected:
 	TObjectPtr<UAttributeComponent> Attributes;
 
 	UPROPERTY(BlueprintReadOnly)
-	EDeathPose DeathPose = EDeathPose::EDP_DeathBack1;
+	TEnumAsByte<EDeathPose> DeathPose;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Combat")
 	TObjectPtr<AActor> CombatTarget;
@@ -95,9 +98,24 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	TArray<FName> DeathMontageSections;
 
+	UPROPERTY(EditAnywhere, Category = "Directional Death")
+	TArray<FName> DeathMontageSectionsBack;
+
+	UPROPERTY(EditAnywhere, Category = "Directional Death")
+	TArray<FName> DeathMontageSectionsForward;
+
+	UPROPERTY(EditAnywhere, Category = "Directional Death")
+	TArray<FName> DeathMontageSectionsLeft;
+
+	UPROPERTY(EditAnywhere, Category = "Directional Death")
+	TArray<FName> DeathMontageSectionsRight;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Montages")
 	TObjectPtr<UAnimMontage> AttackMontage;
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	TArray<FName> AttackMontageSections;
+
+public:
+	FORCEINLINE TEnumAsByte<EDeathPose> GetDeathPose() const { return DeathPose; }
 };

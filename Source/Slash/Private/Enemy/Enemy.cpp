@@ -110,7 +110,6 @@ void AEnemy::BeginPlay()
 
 void AEnemy::Die(const FVector& ImpactPoint)
 {
-	//FName DeathSectionName = DirectionalDeathSelection(ImpactPoint, DeathSectionName);
 	Super::Die(ImpactPoint);
 	EnemyState = EEnemyState::EES_Dead;
 	ClearAttackTimer();
@@ -124,8 +123,9 @@ void AEnemy::Die(const FVector& ImpactPoint)
 
 void AEnemy::Attack()
 {
-	EnemyState = EEnemyState::EES_Engaged;
 	Super::Attack();
+	if (CombatTarget == nullptr) return;
+	EnemyState = EEnemyState::EES_Engaged;
 	PlayAttackMontage();
 }
 
@@ -149,18 +149,6 @@ void AEnemy::HandleDamage(float DamageAmount)
 		HealthBarWidget->SetHealthPercent(Attributes->GetHealthPercent());
 	}
 }
-
-//int32 AEnemy::PlayDeathMontage()
-//{
-//	const int32 Selection = Super::PlayDeathMontage();
-//	TEnumAsByte<EDeathPose> Pose(Selection);
-//	if (Pose < EDeathPose::EDP_DeathForward1)
-//	{
-//		DeathPose = Pose;
-//	}
-//
-//	return Selection;
-//}
 
 void AEnemy::InitializeEnemy()
 {

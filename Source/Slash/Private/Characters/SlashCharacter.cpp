@@ -7,6 +7,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GroomComponent.h"
+#include "Components/AttributeComponent.h"
+
 #include "Items/Item.h"
 #include "Items/Weapons/Weapon.h"
 #include "Enemy/Enemy.h"
@@ -16,6 +18,8 @@
 #include "EnhancedInputSubsystems.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "HUD/SlashHUD.h"
+#include "HUD/SlashOverlay.h"
 
 ASlashCharacter::ASlashCharacter()
 {
@@ -83,23 +87,42 @@ void ASlashCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 }
 
+void ASlashCharacter::Jump()
+{
+	if (ActionState != EActionState::EAS_Dead)
+	{
+		Super::Jump();
+	}
+}
+
 void ASlashCharacter::GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter)
 {
 	Super::GetHit_Implementation(ImpactPoint, Hitter);
 
-	ActionState = EActionState::EAS_HitReaction;
+	if (Attributes && Attributes->GetHealthPercent() < 0.f)
+	{
+		ActionState = EActionState::EAS_HitReaction;
+	}
 	SetWeaponCollisionEnabled(ECollisionEnabled::NoCollision);
+}
+
+float ASlashCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	HandleDamage(DamageAmount);
+	SetHUDHealth();
+	return DamageAmount;
 }
 
 void ASlashCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (IsLockedOn)
+	if (EnemyEngaged && EnemyEngaged->ActorHasTag(FName("Enemy")))
 	{
-		LockViewOnTarget(DeltaTime);
 		CombatTargetStatus();
+		LockViewOnTarget(DeltaTime);
 	}
+
 }
 
 void ASlashCharacter::BeginPlay()
@@ -115,11 +138,8 @@ void ASlashCharacter::BeginPlay()
 	}
 
 	Tags.Add(FName("EngageableTarget"));
-}
 
-void ASlashCharacter::Jump()
-{
-	Super::Jump();
+	InitializeHUDOverlay();
 }
 
 void ASlashCharacter::Move(const FInputActionValue& Value)
@@ -283,37 +303,34 @@ void ASlashCharacter::DropWeapon()
 	}
 }
 
-void ASlashCharacter::LockOnTarget(const FInputActionValue& Value)
+void ASlashCharacter::LockOnTarget()
 {
-	if (CombatTarget == nullptr)
+	FHitResult LineTraceHit;
+	TargetLockTrace(LineTraceHit);
+
+	AActor* ActorHit = LineTraceHit.GetActor();
+
+	if (ActorHit)
 	{
-		FHitResult LineTraceHit;
-		TargetLockTrace(LineTraceHit);
-
-		AActor* ActorHit = LineTraceHit.GetActor();
-		UE_LOG(LogTemp, Warning, TEXT("Holding"));
-
-		if (ActorHit)
+		bool IsActorAnEnemy = ActorHit->ActorHasTag(TEXT("Enemy"));
+		if (IsActorAnEnemy)
 		{
-			bool IsActorAnEnemy = ActorHit->ActorHasTag(TEXT("Enemy"));
-			if (IsActorAnEnemy)
+			CombatTarget = ActorHit;
+			//With bIsLockedOn we can do motion wrapping in the blueprints
+			bIsLockedOn = true;
+			EnemyEngaged = Cast<AEnemy>(ActorHit);
+			if (EnemyEngaged)
 			{
-				EnemyEngaged = Cast<AEnemy>(ActorHit);
-				if (EnemyEngaged)
-				{
-					EnemyEngaged->OverlayToggleOn();
-					CombatTarget = EnemyEngaged;
-					IgnoreActors.Empty();
-					IsLockedOn = true;
-				}
+				EnemyEngaged->OverlayToggleOn();	
 			}
 		}
-	}
-	else if (CombatTarget != nullptr)
-	{
-		CombatTarget = nullptr;
-		IsLockedOn = false;
-		EnemyEngaged = nullptr;
+		else if (!IsActorAnEnemy)
+		{
+			//Disengage locking
+			CombatTarget = nullptr;
+			EnemyEngaged = nullptr;
+			bIsLockedOn = false;
+		}
 	}
 }
 
@@ -356,67 +373,58 @@ void ASlashCharacter::TargetLockTrace(FHitResult& LineTraceHit)
 {
 	const FVector Start = ViewCamera->GetComponentLocation();
 	const FVector End = Start + (ViewCamera->GetForwardVector() * LockOnRange);
-
 	TArray<AActor*> ActorsToIgnore;
 	ActorsToIgnore.Add(this);
-	for (AActor* Actor : IgnoreActors)
-	{
-		ActorsToIgnore.AddUnique(Actor);
-	}
 	
 	UKismetSystemLibrary::LineTraceSingle(this, Start, End, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, bShowLineDebug ? EDrawDebugTrace::ForDuration : EDrawDebugTrace::None, LineTraceHit, true);
-	IgnoreActors.AddUnique(LineTraceHit.GetActor());
-	
 }
 
 void ASlashCharacter::CombatTargetStatus()
 {
-	if (EnemyEngaged)
+	if (EnemyEngaged->ActorHasTag(FName("Dead")))
 	{
-		EEnemyState EngagedEnemyState = EnemyEngaged->GetEnemyState();
-		if (EngagedEnemyState == EEnemyState::EES_Dead)
-		{
-			CombatTarget = nullptr;
-			EnemyEngaged = nullptr;
-			IsLockedOn = false;
-			UE_LOG(LogTemp, Warning, TEXT("Combat Target Dead"));
-		}
+		CombatTarget = nullptr;
+		EnemyEngaged = nullptr;
+		bIsCombatTargetAlive = false;
+	}
+	else
+	{
+		bIsCombatTargetAlive = true;
 	}
 }
 
 void ASlashCharacter::LockViewOnTarget(float DeltaTime)
 {
-	//if (EnemyEngaged && ViewCamera)
-	//{
+	if (EnemyEngaged && ViewCamera)
+	{
 		const FRotator CameraRotation = GetControlRotation();
 		const FRotator EnemyRotation = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), EnemyEngaged->GetActorLocation());
 
-	//	FVector CameraVector = CameraRotation.Vector();
-	//	CameraVector.Normalize();
-	//	FVector EnemyVector = EnemyRotation.Vector();
-	//	EnemyVector.Normalize();
+		FVector CameraVector = CameraRotation.Vector();
+		CameraVector.Normalize();
+		FVector EnemyVector = EnemyRotation.Vector();
+		EnemyVector.Normalize();
 
-	//	float DotProduct = FVector::DotProduct(CameraVector, EnemyVector);
+		float DotProduct = FVector::DotProduct(CameraVector, EnemyVector);
 
-	//	//Change angle to radians
-	//	float AngleInRadians = FMath::Acos(DotProduct);
-	//	//Change angle to degrees
-	//	float AngleInDegrees = FMath::RadiansToDegrees(AngleInRadians);
+		//Change angle to radians
+		float AngleInRadians = FMath::Acos(DotProduct);
+		//Change angle to degrees
+		float AngleInDegrees = FMath::RadiansToDegrees(AngleInRadians);
 
-	//	if (AngleInDegrees > LockOnFieldOfView)
-	//	{
-	//		IsAdjustingCamera = true;
-	//		StartCameraAdjustingTimer();
-	//	}
-	//	if (IsAdjustingCamera)
-	//	{
+		if (AngleInDegrees > LockOnFieldOfView)
+		{
+			bIsAdjustingCamera = true;
+			StartCameraAdjustingTimer();
+		}
+		if (bIsAdjustingCamera)
+		{
 			const FRotator CameraRotator = FRotator(CameraRotation.Pitch, EnemyRotation.Yaw, CameraRotation.Roll);
 			const FRotator FinalRotator = UKismetMathLibrary::RInterpTo(CameraRotation, CameraRotator, DeltaTime, ViewInterpolationSpeed);
 			Controller->SetControlRotation(FinalRotator);
-			UE_LOG(LogTemp, Warning, TEXT("Adjusting Camera"));
-		//}
+		}
 
-	//}
+	}
 }
 
 void ASlashCharacter::StartCameraAdjustingTimer()
@@ -426,10 +434,16 @@ void ASlashCharacter::StartCameraAdjustingTimer()
 
 void ASlashCharacter::AdjustCamera()
 {
-	IsAdjustingCamera = false;
+	bIsAdjustingCamera = false;
 	GetWorldTimerManager().ClearTimer(AdjustCameraTimer);
 }
 
+void ASlashCharacter::Die(const FVector& ImpactPoint)
+{
+	Super::Die(ImpactPoint);
+	ActionState = EActionState::EAS_Dead;
+	DisableMeshCollision();
+}
 
 void ASlashCharacter::AttachWeaponToBack()
 {
@@ -468,3 +482,30 @@ void ASlashCharacter::HitReactEnd()
 	ActionState = EActionState::EAS_Unoccupied;
 }
 
+void ASlashCharacter::InitializeHUDOverlay()
+{
+	APlayerController* PlayerController = Cast<APlayerController>(GetController());
+	if (PlayerController)
+	{
+		ASlashHUD* SlashHUD = Cast<ASlashHUD>(PlayerController->GetHUD());
+		if (SlashHUD)
+		{
+			SlashOverlay = SlashHUD->GetSlashOverlay();
+			if (SlashOverlay && Attributes)
+			{
+				SlashOverlay->SetHealthBarPercent(Attributes->GetHealthPercent());
+				SlashOverlay->SetStaminaBarPercent(1.f);
+				SlashOverlay->SetGold(0);
+				SlashOverlay->SetSouls(0);
+			}
+		}
+	}
+}
+
+void ASlashCharacter::SetHUDHealth()
+{
+	if (SlashOverlay && Attributes)
+	{
+		SlashOverlay->SetHealthBarPercent(Attributes->GetHealthPercent());
+	}
+}

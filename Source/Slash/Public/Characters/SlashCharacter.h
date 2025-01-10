@@ -16,6 +16,7 @@ class UGroomComponent;
 class AItem;
 class UAnimMontage;
 class AEnemy;
+class USlashOverlay;
 
 UCLASS()
 class SLASH_API ASlashCharacter : public ABaseCharacter
@@ -25,13 +26,14 @@ class SLASH_API ASlashCharacter : public ABaseCharacter
 public:
 	ASlashCharacter();
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	virtual void Jump() override;
 	virtual void GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
 
 	virtual void Tick(float DeltaTime) override;
 
 protected:
 	virtual void BeginPlay() override;
-	virtual void Jump() override;
 
 	/* Callbacks for input  */
 	void Move(const FInputActionValue& Value);
@@ -40,7 +42,7 @@ protected:
 	virtual void Attack() override;
 	void Equip();
 	void DropWeapon();
-	void LockOnTarget(const FInputActionValue& Value);
+	void LockOnTarget();
 
 	/* Combat */
 	virtual void AttackEnd() override;
@@ -53,6 +55,7 @@ protected:
 	void LockViewOnTarget(float DeltaTime);
 	void StartCameraAdjustingTimer();
 	void AdjustCamera();
+	virtual void Die(const FVector& ImpactPoint) override;
 
 	UFUNCTION(BlueprintCallable)
 	void AttachWeaponToBack();
@@ -104,8 +107,13 @@ protected:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<AEnemy> EnemyEngaged; //Reference to enemy actively engaged in combat with
 
-	bool IsLockedOn = false;
-	bool IsAdjustingCamera = false;
+	UPROPERTY(BlueprintReadOnly, Category = "Combat")
+	bool bIsCombatTargetAlive = false;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Combat")
+	bool bIsLockedOn = false;
+
+	bool bIsAdjustingCamera = false;
 	FTimerHandle AdjustCameraTimer;
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
@@ -118,6 +126,9 @@ protected:
 	float ViewInterpolationSpeed = 10.f;
 
 private:
+	void InitializeHUDOverlay();
+	void SetHUDHealth();
+
 	/* Character Components */
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UCameraComponent> ViewCamera;
@@ -153,6 +164,8 @@ private:
 
 	UPROPERTY(BlueprintReadWrite, Category = "Montages", meta = (AllowPrivateAccess = "true"))
 	EActionState ActionState = EActionState::EAS_Unoccupied;
+
+	TObjectPtr<USlashOverlay> SlashOverlay;
 
 public:
 	/*Inline functions are more optimized as compilers take the code as is and paste it wherever the function is called

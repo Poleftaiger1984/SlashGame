@@ -35,11 +35,15 @@ void ABaseCharacter::GetHit_Implementation(const FVector& ImpactPoint, AActor* H
 
 void ABaseCharacter::Attack()
 {
-
+	if (CombatTarget && CombatTarget->ActorHasTag(FName("Dead")))
+	{
+		CombatTarget = nullptr;
+	}
 }
 
 void ABaseCharacter::Die(const FVector& ImpactPoint)
 {
+	Tags.Add(FName("Dead"));
 	DirectionalDeathSelection(ImpactPoint);
 }
 
@@ -105,6 +109,7 @@ void ABaseCharacter::DirectionalHitReact(const FVector& ImpactPoint)
 void ABaseCharacter::DirectionalDeathSelection(const FVector& ImpactPoint)
 {
 	FName DeathSectionName;
+	int32 Selection;
 	const FVector Forward = GetActorForwardVector();
 	const FVector ImpactLowered(ImpactPoint.X, ImpactPoint.Y, GetActorLocation().Z);
 	const FVector ToHit = (ImpactLowered - GetActorLocation()).GetSafeNormal();
@@ -120,81 +125,64 @@ void ABaseCharacter::DirectionalDeathSelection(const FVector& ImpactPoint)
 	{
 		AngleOfAttack *= -1.f;
 	}
-	int32 const SelectionBack = FMath::RandRange(0, 2);
-	switch (SelectionBack)
-	{
-	case 0:
-		DeathSectionName = FName("DeathForward1");
-		DeathPose = EDeathPose::EDP_DeathForward1;
-		break;
-	case 1:
-		DeathSectionName = FName("DeathForward2");
-		DeathPose = EDeathPose::EDP_DeathForward2;
-		break;
-	case 2:
-		DeathSectionName = FName("DeathForward3");
-		DeathPose = EDeathPose::EDP_DeathForward3;
-		break;
-	default:
-		break;
-	}
+	Selection = PlayRandomMontageSection(DeathMontage, DeathMontageSectionsBack);
+	ChooseDeathPose(AngleOfAttack, Selection);
 
 	if (AngleOfAttack >= -45.f && AngleOfAttack < 45.f)
 	{
-		int32 const SelectionForward = FMath::RandRange(0, 2);
-		switch (SelectionForward)
-		{
-		case 0:
-			DeathSectionName = FName("DeathBack1");
-			DeathPose = EDeathPose::EDP_DeathBack1;
-			break;
-		case 1:
-			DeathSectionName = FName("DeathBack2");
-			DeathPose = EDeathPose::EDP_DeathBack2;
-			break;
-		case 2:
-			DeathSectionName = FName("DeathBack3");
-			DeathPose = EDeathPose::EDP_DeathBack3;
-		default:
-			break;
-		}
+		Selection = PlayRandomMontageSection(DeathMontage, DeathMontageSectionsForward);
+		ChooseDeathPose(AngleOfAttack, Selection);
 	}
 	else if (AngleOfAttack >= -135.f && AngleOfAttack < -45.f)
 	{
-		int32 const SelectionLeft = FMath::RandRange(0, 1);
-		switch (SelectionLeft)
-		{
-		case 0:
-			DeathSectionName = FName("DeathRight1");
-			DeathPose = EDeathPose::EDP_DeathRight1;
-			break;
-		case 1:
-			DeathSectionName = FName("DeathRight2");
-			DeathPose = EDeathPose::EDP_DeathRight2;
-			break;
-		default:
-			break;
-		}
+		Selection = PlayRandomMontageSection(DeathMontage, DeathMontageSectionsRight);
+		ChooseDeathPose(AngleOfAttack, Selection);
 	}
 	else if (AngleOfAttack >= 45.f && AngleOfAttack < 135.f)
 	{
-		int32 const SelectionRight = FMath::RandRange(0, 1);
-		switch (SelectionRight)
-		{
-		case 0:
-			DeathSectionName = FName("DeathLeft1");
-			DeathPose = EDeathPose::EDP_DeathLeft1;
-			break;
-		case 1:
-			DeathSectionName = FName("DeathLeft2");
-			DeathPose = EDeathPose::EDP_DeathLeft2;
-			break;
-		default:
-			break;
-		}
+		Selection = PlayRandomMontageSection(DeathMontage, DeathMontageSectionsLeft);
+		ChooseDeathPose(AngleOfAttack, Selection);
 	}
 
-	PlayDeathMontage(DeathSectionName);
+}
+
+void ABaseCharacter::ChooseDeathPose(double Angle, int32 Selection)
+{
+	TEnumAsByte<EDeathPose> Pose(Selection);
+	DeathPose = Pose;
+
+	if (Angle >= -45.f && Angle < 45.f)
+	{
+		uint8 CurrentValue = Pose.GetIntValue();
+		uint8 PoseSelector = CurrentValue + 3;
+		if (IsValidDeathPose(PoseSelector))
+		{
+			DeathPose = static_cast<EDeathPose>(PoseSelector);
+		}
+	}
+	else if (Angle >= -135.f && Angle < -45.f)
+	{
+		uint8 CurrentValue = Pose.GetIntValue();
+		uint8 PoseSelector = CurrentValue + 6;
+		if (IsValidDeathPose(PoseSelector))
+		{
+			DeathPose = static_cast<EDeathPose>(PoseSelector);
+		}
+	}
+	else if (Angle >= 45.f && Angle < 135.f)
+	{
+		uint8 CurrentValue = Pose.GetIntValue();
+		uint8 PoseSelector = CurrentValue + 8;
+		if (IsValidDeathPose(PoseSelector))
+		{
+			DeathPose = static_cast<EDeathPose>(PoseSelector);
+		}
+	}
+}
+
+bool ABaseCharacter::IsValidDeathPose(uint8 Value)
+{
+	return Value >= static_cast<uint8>(EDeathPose::EDP_DeathForward1) && Value < static_cast<uint8>(EDeathPose::EDP_MAX);
 }
 
 void ABaseCharacter::PlayHitSound(const FVector& ImpactPoint)
@@ -239,11 +227,6 @@ int32 ABaseCharacter::PlayRandomMontageSection(UAnimMontage* Montage, const TArr
 	PlayMontageSection(Montage, SectionNames[Selection]);
 	return Selection;
 }
-
-//int32 ABaseCharacter::PlayDeathMontage()
-//{
-//	return PlayRandomMontageSection(DeathMontage, DeathMontageSections);
-//}
 
 void ABaseCharacter::DisableCapsule()
 {
@@ -311,6 +294,11 @@ bool ABaseCharacter::CanAttack()
 bool ABaseCharacter::IsAlive()
 {
 	return Attributes && Attributes->IsAlive();
+}
+
+void ABaseCharacter::DisableMeshCollision()
+{
+	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 void ABaseCharacter::AttackEnd()
