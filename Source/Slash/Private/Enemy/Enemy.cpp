@@ -10,6 +10,8 @@
 #include "HUD/HealthBarComponent.h"
 #include "Characters/CharacterTypes.h"
 #include "Items/Weapons/Weapon.h"
+#include "Items/Pickups/Soul.h"
+#include "Components/AttributeComponent.h"
 
 AEnemy::AEnemy()
 {
@@ -81,6 +83,11 @@ void AEnemy::GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter)
 	ClearAttackTimer();
 	StopAttackMontage();
 	SetWeaponCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	if (IsInsideAttackRadius())
+	{
+		if(!IsDead()) StartAttackTimer();
+	}
 }
 
 void AEnemy::OverlayToggleOn()
@@ -108,9 +115,9 @@ void AEnemy::BeginPlay()
 	Tags.Add(FName("Enemy"));
 }
 
-void AEnemy::Die(const FVector& ImpactPoint)
+void AEnemy::Die_Implementation(const FVector& ImpactPoint)
 {
-	Super::Die(ImpactPoint);
+	Super::Die_Implementation(ImpactPoint);
 	EnemyState = EEnemyState::EES_Dead;
 	ClearAttackTimer();
 	ClearPatrolTimer();
@@ -119,6 +126,22 @@ void AEnemy::Die(const FVector& ImpactPoint)
 	SetLifeSpan(DeathLifeSpan);
 	GetCharacterMovement()->bOrientRotationToMovement = false;
 	SetWeaponCollisionEnabled(ECollisionEnabled::NoCollision);
+	SpawnSoul();
+}
+
+void AEnemy::SpawnSoul()
+{
+	UWorld* World = GetWorld();
+	if (World && SoulClass && Attributes)
+	{
+		const FVector SpawnLocation = GetActorLocation() + FVector(0.f, 0.f, 125.f);
+		ASoul* SpawnedSoul = World->SpawnActor<ASoul>(SoulClass, SpawnLocation, GetActorRotation());
+		if (SpawnedSoul)
+		{
+			SpawnedSoul->SetSouls(Attributes->GetSouls());
+			SpawnedSoul->SetOwner(this);
+		}
+	}
 }
 
 void AEnemy::Attack()
@@ -298,7 +321,7 @@ void AEnemy::MoveToTarget(TObjectPtr<AActor> Target)
 	if (EnemyController == nullptr || Target == nullptr) return;
 	FAIMoveRequest MoveRequest;
 	MoveRequest.SetGoalActor(Target);
-	MoveRequest.SetAcceptanceRadius(50.f);
+	MoveRequest.SetAcceptanceRadius(AcceptanceRadius);
 	EnemyController->MoveTo(MoveRequest);
 }
 

@@ -41,7 +41,7 @@ void ABaseCharacter::Attack()
 	}
 }
 
-void ABaseCharacter::Die(const FVector& ImpactPoint)
+void ABaseCharacter::Die_Implementation(const FVector& ImpactPoint)
 {
 	Tags.Add(FName("Dead"));
 	DirectionalDeathSelection(ImpactPoint);
@@ -125,12 +125,12 @@ void ABaseCharacter::DirectionalDeathSelection(const FVector& ImpactPoint)
 	{
 		AngleOfAttack *= -1.f;
 	}
-	Selection = PlayRandomMontageSection(DeathMontage, DeathMontageSectionsBack);
+	Selection = PlayRandomMontageSection(DeathMontage, DeathMontageSectionsForward);
 	ChooseDeathPose(AngleOfAttack, Selection);
 
 	if (AngleOfAttack >= -45.f && AngleOfAttack < 45.f)
 	{
-		Selection = PlayRandomMontageSection(DeathMontage, DeathMontageSectionsForward);
+		Selection = PlayRandomMontageSection(DeathMontage, DeathMontageSectionsBack);
 		ChooseDeathPose(AngleOfAttack, Selection);
 	}
 	else if (AngleOfAttack >= -135.f && AngleOfAttack < -45.f)
@@ -236,13 +236,13 @@ void ABaseCharacter::DisableCapsule()
 int32 ABaseCharacter::PlayAttackMontage()
 {
 	AActor* WeaponOwner = HeldWeapon->GetOwner();
-	if (WeaponOwner->ActorHasTag(TEXT("EngageableTarget")))
+	if (WeaponOwner && WeaponOwner->ActorHasTag(TEXT("EngageableTarget")))
 	{
 		AttackMontage = HeldWeapon->GetAttackMontage();
 		AttackMontageSections = HeldWeapon->GetAttackSections();
 		return PlayRandomMontageSection(AttackMontage, AttackMontageSections);
 	}
-	else if (WeaponOwner->ActorHasTag(TEXT("Enemy")))
+	else if (WeaponOwner && WeaponOwner->ActorHasTag(TEXT("Enemy")))
 	{
 		return PlayRandomMontageSection(AttackMontage, AttackMontageSections);
 	}
@@ -262,6 +262,11 @@ void ABaseCharacter::StopAttackMontage()
 void ABaseCharacter::ClearAttackMontage()
 {
 	AttackMontage == nullptr;
+}
+
+void ABaseCharacter::PlayDodgeMontage()
+{
+	PlayMontageSection(DodgeMontage, FName("Default"));
 }
 
 FVector ABaseCharacter::GetTranslationWarpTarget()
@@ -304,6 +309,10 @@ void ABaseCharacter::DisableMeshCollision()
 void ABaseCharacter::AttackEnd()
 {
 
+}
+
+void ABaseCharacter::DodgeEnd()
+{
 }
 
 void ABaseCharacter::Tick(float DeltaTime)

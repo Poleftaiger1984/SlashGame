@@ -6,6 +6,7 @@
 #include "BaseCharacter.h"
 #include "InputActionValue.h" 
 #include "CharacterTypes.h"
+#include "Interfaces/PickupInterface.h"
 #include "SlashCharacter.generated.h"
 
 class UInputMappingContext;
@@ -16,10 +17,13 @@ class UGroomComponent;
 class AItem;
 class UAnimMontage;
 class AEnemy;
+class ASoul;
+class ATreasure;
 class USlashOverlay;
+class APotion;
 
 UCLASS()
-class SLASH_API ASlashCharacter : public ABaseCharacter
+class SLASH_API ASlashCharacter : public ABaseCharacter, public IPickupInterface
 {
 	GENERATED_BODY()
 
@@ -29,6 +33,10 @@ public:
 	virtual void Jump() override;
 	virtual void GetHit_Implementation(const FVector& ImpactPoint, AActor* Hitter) override;
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
+	virtual void SetOverlappingItem(TObjectPtr<AItem> Item) override;
+	virtual void AddSouls(TObjectPtr<ASoul> Soul) override;
+	virtual void AddGold(TObjectPtr<ATreasure> Treasure) override;
+	virtual void AddHealthBoost(TObjectPtr<APotion> Potion) override;
 
 	virtual void Tick(float DeltaTime) override;
 
@@ -43,9 +51,13 @@ protected:
 	void Equip();
 	void DropWeapon();
 	void LockOnTarget();
+	void Dodge();
 
 	/* Combat */
+	bool HasEnoughStamina();
+	bool IsOccupied() const;
 	virtual void AttackEnd() override;
+	virtual void DodgeEnd() override;
 	virtual bool CanAttack() override;
 	bool CanDisarm();
 	bool CanArm();
@@ -55,7 +67,7 @@ protected:
 	void LockViewOnTarget(float DeltaTime);
 	void StartCameraAdjustingTimer();
 	void AdjustCamera();
-	virtual void Die(const FVector& ImpactPoint) override;
+	virtual void Die_Implementation(const FVector& ImpactPoint) override;
 
 	UFUNCTION(BlueprintCallable)
 	void AttachWeaponToBack();
@@ -95,6 +107,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> LockOnTargetAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> DodgeAction;
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	float LockOnRange = 100.f;
@@ -171,7 +186,6 @@ public:
 	/*Inline functions are more optimized as compilers take the code as is and paste it wherever the function is called
 	* This should be done only for small functions like getters and setters. FORCEINLINE is an UE Macro that forces
 	* the compiler to keep the function inline */
-	FORCEINLINE void SetOverlappingItem(TObjectPtr<AItem> Item) { OverlappingItem = Item; }
 	FORCEINLINE ECharacterState GetCharacterState() const { return CharacterState; }
 	FORCEINLINE EActionState GetActionState() const { return ActionState; }
 

@@ -8,7 +8,8 @@
 
 class UHealthBarComponent;
 class AAIController;
-class UPawnSensingComponent;
+class UPawnSensingComponent; 
+class ASoul;
 
 UCLASS()
 class SLASH_API AEnemy : public ABaseCharacter
@@ -39,7 +40,8 @@ protected:
 	/* <AActor> */
 	
 	/* <ABaseCharacter> */
-	virtual void Die(const FVector& ImpactPoint) override;
+	virtual void Die_Implementation(const FVector& ImpactPoint) override;
+	void SpawnSoul();
 	virtual void Attack() override;
 	virtual bool CanAttack() override;
 	virtual void AttackEnd() override;
@@ -86,14 +88,17 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UPawnSensingComponent> PawnSensing;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category = "Combat")
 	TSubclassOf<class AWeapon> WeaponClass;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category = "Combat")
 	double CombatRadius = 1000.f;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category = "Combat")
 	double AttackRadius = 150.f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	double AcceptanceRadius = 50.f;
 
 	UPROPERTY()
 	TObjectPtr<AAIController> EnemyController;
@@ -105,7 +110,7 @@ private:
 	UPROPERTY(EditInstanceOnly, Category = "AI Navigation")
 	TArray<TObjectPtr<AActor>> PatrolTargets;
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Category = "Combat")
 	double PatrolRadius = 200.f;
 
 	FTimerHandle PatrolTimer;
@@ -137,4 +142,7 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	float OverlayLifeSpan = 5.f;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	TSubclassOf<ASoul> SoulClass;
 };

@@ -49,9 +49,9 @@ void AWeapon::Equip(TObjectPtr<USceneComponent> InParent, FName InSocketName, TO
 
 void AWeapon::DeactivateEmbers()
 {
-	if (EmbersEffect)
+	if (ItemEffect)
 	{
-		EmbersEffect->Deactivate();
+		ItemEffect->Deactivate();
 	}
 }
 
@@ -65,9 +65,9 @@ void AWeapon::PlayEquipSound()
 
 void AWeapon::EmbersActivate()
 {
-	if (EmbersEffect)
+	if (ItemEffect)
 	{
-		EmbersEffect->Activate();
+		ItemEffect->Activate();
 	}
 }
 

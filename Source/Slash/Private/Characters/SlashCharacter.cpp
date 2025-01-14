@@ -11,6 +11,10 @@
 
 #include "Items/Item.h"
 #include "Items/Weapons/Weapon.h"
+#include "Items/Pickups/Soul.h"
+#include "Items/Pickups/Treasure.h"
+#include "Items/Pickups/Potion.h"
+
 #include "Enemy/Enemy.h"
 #include "Animation/AnimMontage.h"
 #include "Components/InputComponent.h"
@@ -83,6 +87,9 @@ void ASlashCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 
 		//Locking onto Target
 		EnhancedInputComponent->BindAction(LockOnTargetAction, ETriggerEvent::Triggered, this, &ASlashCharacter::LockOnTarget);
+
+		//Dodging
+		EnhancedInputComponent->BindAction(DodgeAction, ETriggerEvent::Triggered, this, &ASlashCharacter::Dodge);
 	}
 
 }
@@ -113,6 +120,38 @@ float ASlashCharacter::TakeDamage(float DamageAmount, FDamageEvent const& Damage
 	return DamageAmount;
 }
 
+void ASlashCharacter::SetOverlappingItem(TObjectPtr<AItem> Item)
+{
+	OverlappingItem = Item;
+}
+
+void ASlashCharacter::AddSouls(TObjectPtr<ASoul> Soul)
+{
+	if (Attributes && SlashOverlay)
+	{
+		Attributes->AddSouls(Soul->GetSouls());
+		SlashOverlay->SetSouls(Attributes->GetSouls());
+	}
+}
+
+void ASlashCharacter::AddGold(TObjectPtr<ATreasure> Treasure)
+{
+	if (Attributes && SlashOverlay)
+	{
+		Attributes->AddGold(Treasure->GetGold());
+		SlashOverlay->SetGold(Attributes->GetGold());
+	}
+}
+
+void ASlashCharacter::AddHealthBoost(TObjectPtr<APotion> Potion)
+{
+	if (Attributes && SlashOverlay)
+	{
+		Attributes->AddHealthBoost(Potion->GetHealthBoost());
+		SlashOverlay->SetHealthBarPercent(Attributes->GetHealthPercent());
+	}
+}
+
 void ASlashCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -123,6 +162,11 @@ void ASlashCharacter::Tick(float DeltaTime)
 		LockViewOnTarget(DeltaTime);
 	}
 
+	if (Attributes && SlashOverlay)
+	{
+		Attributes->RegenStamina(DeltaTime);
+		SlashOverlay->SetStaminaBarPercent(Attributes->GetStaminaPercent());
+	}
 }
 
 void ASlashCharacter::BeginPlay()
@@ -334,8 +378,37 @@ void ASlashCharacter::LockOnTarget()
 	}
 }
 
+void ASlashCharacter::Dodge()
+{
+	if (IsOccupied() || !HasEnoughStamina()) return;
+
+	PlayDodgeMontage();
+	ActionState = EActionState::EAS_Dodge;
+	if (Attributes && SlashOverlay)
+	{
+		Attributes->UseStamina(Attributes->GetDodgeCost());
+		SlashOverlay->SetStaminaBarPercent(Attributes->GetStaminaPercent());
+	}
+}
+
+bool ASlashCharacter::HasEnoughStamina()
+{
+	return Attributes && Attributes->GetStamina() > Attributes->GetDodgeCost();
+}
+
+bool ASlashCharacter::IsOccupied() const
+{
+	return ActionState != EActionState::EAS_Unoccupied;
+}
+
 void ASlashCharacter::AttackEnd()
 {
+	ActionState = EActionState::EAS_Unoccupied;
+}
+
+void ASlashCharacter::DodgeEnd()
+{
+	Super::DodgeEnd();
 	ActionState = EActionState::EAS_Unoccupied;
 }
 
@@ -423,7 +496,6 @@ void ASlashCharacter::LockViewOnTarget(float DeltaTime)
 			const FRotator FinalRotator = UKismetMathLibrary::RInterpTo(CameraRotation, CameraRotator, DeltaTime, ViewInterpolationSpeed);
 			Controller->SetControlRotation(FinalRotator);
 		}
-
 	}
 }
 
@@ -438,9 +510,9 @@ void ASlashCharacter::AdjustCamera()
 	GetWorldTimerManager().ClearTimer(AdjustCameraTimer);
 }
 
-void ASlashCharacter::Die(const FVector& ImpactPoint)
+void ASlashCharacter::Die_Implementation(const FVector& ImpactPoint)
 {
-	Super::Die(ImpactPoint);
+	Super::Die_Implementation(ImpactPoint);
 	ActionState = EActionState::EAS_Dead;
 	DisableMeshCollision();
 }

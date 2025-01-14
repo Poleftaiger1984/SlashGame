@@ -8,6 +8,8 @@
 
 class USphereComponent;
 class UNiagaraComponent;
+class UNiagaraSystem;
+class USoundBase;
 
 enum class EItemState : uint8
 {
@@ -49,6 +51,9 @@ protected:
 	UFUNCTION()
 	virtual void OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
+	void SpawnPickupSystem();
+	void SpawnPickupSound();
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<UStaticMeshComponent> ItemMesh;
 
@@ -61,12 +66,18 @@ protected:
 	TObjectPtr<USphereComponent> Sphere;
 
 	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<UNiagaraComponent> EmbersEffect;
+	TObjectPtr<UNiagaraComponent> ItemEffect;
+
+	UPROPERTY(EditAnywhere, Category = "Audio")
+	TObjectPtr<USoundBase> PickupSound;
 
 private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	float RunningTime;
+
+	UPROPERTY(EditAnywhere)
+	TObjectPtr<UNiagaraSystem> PickupEffect;
 	
 public:
 	FORCEINLINE void SetItemState(EItemState State) { ItemState = State; }
